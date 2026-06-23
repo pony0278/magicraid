@@ -38,6 +38,16 @@ pub fn clamp_speed(speed_halves: u8) -> u8 {
 pub const MAGE_HP: i32 = 14;
 pub const HASTE_GRANT: u32 = 4; // 加速持續手數(CFG.hasteGrant)
 
+// ── 法術數值(CFG.bolt/fire/heavy/hook/oil,行 156–165)。 ──
+pub const BOLT_DMG: i32 = 3;
+pub const BOLT_RANGE: i32 = 5;
+pub const FIRE_DMG: i32 = 3; // 火球直擊傷害
+pub const FIRE_RANGE: i32 = 4;
+pub const HEAVY_DMG: i32 = 5; // 烈焰術 AoE 傷害
+pub const HEAVY_RANGE: i32 = 4;
+pub const HOOK_RANGE: i32 = 4;
+pub const OIL_RANGE: i32 = 3;
+
 // 敵人(CFG.imp / eye / boss,行 161–163)
 pub const IMP_HP: i32 = 5;
 pub const IMP_DMG: i32 = 3; // 小鬼貼臉攻擊

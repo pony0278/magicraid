@@ -174,6 +174,8 @@ fn imp_attack_interrupts_mage_channel() {
     let m = g.entities.iter().position(|e| e.kind.is_mage()).unwrap();
     g.entities[m].channel = Some(Channel {
         spell: "heavy",
+        tx: 0,
+        ty: 0,
         ready: false,
         interrupted: false,
     });

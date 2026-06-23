@@ -21,11 +21,14 @@ impl Kind {
     }
 }
 
-/// 前搖通道(強力法術兩格制,速度規格 §4)。骨架先佔位,結算待 spells.rs。
+/// 前搖通道(強力法術兩格制,速度規格 §4)。對應 JS `mage.channel`。
 #[derive(Clone, Debug)]
 pub struct Channel {
-    /// 此通道對應的法術 id(view 端 metadata 用)。
+    /// 此通道對應的法術 id(釋放時據此結算;view 端 metadata 也用)。
     pub spell: &'static str,
+    /// 蓄力鎖定的目標格(對應 JS channel.x/y)。
+    pub tx: i32,
+    pub ty: i32,
     /// 前搖已撐過、停在釋放手(對應 JS mage.channel.ready)。
     pub ready: bool,
     /// 蓄力期間受傷被打斷(對應 JS mage.channel.interrupted)。

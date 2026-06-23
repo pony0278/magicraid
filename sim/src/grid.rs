@@ -50,6 +50,24 @@ pub fn walkable(g: &GameState, x: i32, y: i32) -> bool {
     in_bounds(g, x, y) && !blocks_move(g, x, y)
 }
 
+/// 烈焰術範圍:`(cx,cy)` 的加號(中心 + 四正交)中在界內的格。對應 JS `heavyArea`(行 506)。
+/// 順序逐字對齊 JS:N, W, C, E, S。
+pub fn heavy_area(g: &GameState, cx: i32, cy: i32) -> Vec<(i32, i32)> {
+    let mut a = Vec::new();
+    for dy in -1i32..=1 {
+        for dx in -1i32..=1 {
+            if dx.abs() + dy.abs() > 1 {
+                continue;
+            }
+            let (x, y) = (cx + dx, cy + dy);
+            if in_bounds(g, x, y) {
+                a.push((x, y));
+            }
+        }
+    }
+    a
+}
+
 /// 砸擊範圍:`(cx,cy)` 周圍 3×3(含中心)中非牆的格。對應 JS `slamArea`(行 247)。
 pub fn slam_area(g: &GameState, cx: i32, cy: i32) -> Vec<(i32, i32)> {
     let mut a = Vec::new();
