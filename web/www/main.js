@@ -18,6 +18,21 @@ const ROOM_NAMES = [
 const TILE = { FLOOR: 0, WALL: 1, WOOD: 2, WOODBURN: 3, OIL: 4, SPIKE: 5, RUNE: 6 };
 const ST = { INPUT: 0, RELEASE: 1, PICK: 2, COMPLETE: 3, DEFEAT: 4 };
 const KIND_ICON = { mage: "🧙", imp: "👹", eye: "👁", boss: "🗿" };
+// reject 原因碼 → 訊息(對齊 web/src/lib.rs reject_code)。
+const REJECT_MSG = {
+  1: "那裡沒有敵人(沒點到敵人格?)",
+  2: "超出射程",
+  3: "沒有視線(被牆擋住)",
+  4: "不是相鄰敵人 — 推只能推緊鄰你的敵人(含斜角)",
+  5: "它已經貼著你了",
+  6: "目標是牆",
+  7: "只能用在空地板",
+  8: "超出邊界",
+  9: "沒血瓶或血已滿",
+  10: "那格不能走(有東西/原地)",
+  11: "找不到路",
+  12: "沒有可釋放的蓄力",
+};
 
 // ── Poki SDK 薄殼:有就用,沒有就 no-op(離線/本機開發)──
 const Poki = (() => {
@@ -89,7 +104,8 @@ function doStep(act, x = 0, y = 0, spell = 0) {
   const events = readEvents();
   refresh(); // state = 新狀態
   if (rejected) {
-    flash("✋ 那一手不行(超出射程/視線/沒目標)。");
+    const why = REJECT_MSG[wasm.mr_reject_reason()] || "那一手不行";
+    flash("✋ " + why);
     render();
     return;
   }

@@ -236,3 +236,24 @@ fn movement_replay_is_bit_identical() {
     };
     assert_eq!(run(), run(), "移動回放必須 bit 一致");
 }
+
+#[test]
+fn repro_diagonal_push_open_field() {
+    // 重現截圖:開闊場,法師(6,4)、小鬼(5,3) 斜對角(小鬼在法師左上)→ 推往左上落 (4,2)。
+    let mut g = make(&[
+        "###########",
+        "#....s....#",
+        "#.........#",
+        "#.........#",
+        "#.........#",
+        "#....s....#",
+        "###########",
+    ]);
+    g.entities.push(Entity::new(0, Kind::Mage, 6, 4));
+    g.entities.push(Entity::new(1, Kind::Imp, 5, 3));
+    g.entities.sort_by_key(|e| e.id);
+    let mut ctx = StepCtx::new();
+    let i = imp_idx(&g);
+    do_push(&mut g, i, &mut ctx);
+    assert_eq!((ent(&g, i).x, ent(&g, i).y), (4, 2), "斜推左上應移到 (4,2)");
+}

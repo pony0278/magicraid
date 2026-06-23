@@ -7,7 +7,7 @@
 
 use magicraid_sim::{
     apply_drop, apply_pick, gen_offers, init_room, project_chain, spells::pickable, step, Action,
-    Event, GameState, Kind, PickResult, RunState, Spell, Status, Target, Tile,
+    Event, GameState, Kind, PickResult, Reject, RunState, Spell, Status, Target, Tile,
 };
 use std::cell::RefCell;
 
@@ -30,8 +30,27 @@ struct World {
     g: GameState,
     run: RunState,
     status: Status,
-    rejected: bool,
+    reject_code: u32,
     last_events: Vec<Event>,
+}
+
+/// Reject → 數字碼(JS 端對應訊息;0 = 未拒)。
+fn reject_code(r: Option<Reject>) -> u32 {
+    match r {
+        None => 0,
+        Some(Reject::NoEnemyThere) => 1,
+        Some(Reject::OutOfRange) => 2,
+        Some(Reject::NoLineOfSight) => 3,
+        Some(Reject::NotAdjacent) => 4,
+        Some(Reject::AlreadyAdjacent) => 5,
+        Some(Reject::TargetIsWall) => 6,
+        Some(Reject::NotFloor) => 7,
+        Some(Reject::OutOfBounds) => 8,
+        Some(Reject::CannotDrink) => 9,
+        Some(Reject::BlockedDestination) => 10,
+        Some(Reject::NoPath) => 11,
+        Some(Reject::NothingToRelease) => 12,
+    }
 }
 
 thread_local! {
@@ -91,7 +110,7 @@ pub extern "C" fn mr_new(seed: u32) {
             g,
             run,
             status: Status::AwaitingInput,
-            rejected: false,
+            reject_code: 0,
             last_events: Vec::new(),
         });
     });
@@ -117,7 +136,7 @@ pub extern "C" fn mr_step(act: u32, x: i32, y: i32, spell: u32) -> u32 {
             _ => Action::Wait,
         };
         let r = step(&mut world.g, &mut world.run, action);
-        world.rejected = r.rejected.is_some();
+        world.reject_code = reject_code(r.rejected);
         world.status = r.status;
         world.last_events = r.events;
         status_code(world.status)
@@ -127,7 +146,13 @@ pub extern "C" fn mr_step(act: u32, x: i32, y: i32, spell: u32) -> u32 {
 /// 上一手是否被拒(非法 action,無時間流逝)。
 #[no_mangle]
 pub extern "C" fn mr_rejected() -> u32 {
-    WORLD.with(|w| w.borrow().as_ref().map_or(0, |x| x.rejected as u32))
+    WORLD.with(|w| w.borrow().as_ref().map_or(0, |x| (x.reject_code != 0) as u32))
+}
+
+/// 上一手被拒的原因碼(0=未拒;見 reject_code 對照)。
+#[no_mangle]
+pub extern "C" fn mr_reject_reason() -> u32 {
+    WORLD.with(|w| w.borrow().as_ref().map_or(0, |x| x.reject_code))
 }
 
 /// 目前 status code。
@@ -158,7 +183,7 @@ pub extern "C" fn mr_next_room() {
             world.run.room_idx += 1;
             world.g = init_room(world.run.room_idx);
             world.status = Status::AwaitingInput;
-            world.rejected = false;
+            world.reject_code = 0;
         }
     });
 }
@@ -247,7 +272,7 @@ fn render_json(world: &World) -> String {
     s.push('{');
     s.push_str(&format!("\"w\":{},\"h\":{},", g.w, g.h));
     s.push_str(&format!("\"status\":{},", status_code(world.status)));
-    s.push_str(&format!("\"rejected\":{},", world.rejected));
+    s.push_str(&format!("\"rejected\":{},", world.reject_code != 0));
     s.push_str(&format!("\"room\":{},", g.room_idx));
     s.push_str(&format!("\"potions\":{},", world.run.potions));
 
