@@ -30,7 +30,7 @@ pub mod terrain;
 pub mod time_chain;
 
 pub use damage::{StepCtx, TierTable};
-pub use events::{Event, Status};
+pub use events::{Cause, Event, Status};
 pub use roguelite::{
     apply_drop, apply_pick, gen_offers, hash32, init_room, rng_for, Mulberry32, Op, PickResult,
     RunState,

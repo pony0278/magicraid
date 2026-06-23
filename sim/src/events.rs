@@ -4,11 +4,22 @@
 //! 動畫與在地化字串。`Status` 收斂 JS 散落的 waiting/anim/wantOverlay 控制流(B0 §E)。
 //! 骨架先列核心變體,terrain/spells 模組進來時再擴(FireSpread/WoodIgnited…)。
 
+/// 致命傷的來源(行為計數器歸因:火流 / 推進流 / 魔法彈流…)。view/harness 從 `Died` 數。
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Cause {
+    Bolt,       // 魔法彈
+    Fire,       // 火球直擊 / 點油 / 火格 DoT / 烈焰術
+    HazardPush, // 推/勾/震 把單位送進尖刺或火
+    Crash,      // 撞牆/撞敵的撞擊
+    Enemy,      // 敵人對法師造成
+    Other,
+}
+
 /// 一次 `step()` 內依序累積的事件(view 照順序重放)。
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Event {
     Damaged { id: u32, amt: i32 },
-    Died { id: u32 },
+    Died { id: u32, cause: Cause },
     Moved { id: u32, from: (i32, i32), to: (i32, i32) },
     SpellCast { id: u32, spell: &'static str },
     ChannelInterrupted { id: u32 },

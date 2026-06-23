@@ -11,6 +11,7 @@
 
 use crate::config::{FIRE_DOT, FIRE_DUR, WOOD_BURN_TICKS};
 use crate::damage::{deal_damage, StepCtx};
+use crate::events::Cause;
 use crate::grid::{ent_index_at, in_bounds};
 use crate::state::{GameState, Tile};
 
@@ -40,7 +41,7 @@ pub fn ignite_oil(g: &mut GameState, sx: i32, sy: i32, ctx: &mut StepCtx) {
         g.fire[cy as usize][cx as usize] = FIRE_DUR;
         if let Some(idx) = ent_index_at(g, cx, cy) {
             if !g.entities[idx].kind.is_mage() {
-                deal_damage(g, idx, FIRE_DOT, ctx);
+                deal_damage(g, idx, FIRE_DOT, Cause::Fire, ctx);
             }
         }
         // 八方向鄰居入 stack(順序逐字對齊 JS:dy 外、dx 內,跳過 (0,0))。
@@ -86,7 +87,7 @@ pub fn fire_tick(g: &mut GameState, ctx: &mut StepCtx) {
     // 3. 每個火格:傷害其上單位(含法師),並蔓延到鄰接油/木。
     for (fx, fy) in active {
         if let Some(idx) = ent_index_at(g, fx, fy) {
-            deal_damage(g, idx, FIRE_DOT, ctx);
+            deal_damage(g, idx, FIRE_DOT, Cause::Fire, ctx);
         }
         for dy in -1..=1 {
             for dx in -1..=1 {

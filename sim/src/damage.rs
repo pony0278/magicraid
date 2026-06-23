@@ -3,7 +3,7 @@
 //! 對應 `prototype/demo1.html` `dealDamage`(行 257–268),但 **`pendingHits.push` 改成 emit
 //! `Event`**(B0 §C-4)。含:boss 過熱雙倍、法師蓄力受傷打斷、擊殺續加速(★★)。
 
-use crate::events::Event;
+use crate::events::{Cause, Event};
 use crate::state::{GameState, Kind};
 use std::collections::BTreeMap;
 
@@ -59,8 +59,9 @@ impl Default for StepCtx {
     }
 }
 
-/// 對 `entities[idx]` 造成 `amt` 傷害並結算死亡。對應 JS `dealDamage`(逐行對齊)。
-pub fn deal_damage(g: &mut GameState, idx: usize, mut amt: i32, ctx: &mut StepCtx) {
+/// 對 `entities[idx]` 造成 `amt` 傷害並結算死亡。`cause` 供行為計數器歸因(`Died` 帶出)。
+/// 對應 JS `dealDamage`(逐行對齊)。
+pub fn deal_damage(g: &mut GameState, idx: usize, mut amt: i32, cause: Cause, ctx: &mut StepCtx) {
     let kind = g.entities[idx].kind;
 
     // boss 過熱(exhausted)受到雙倍傷害。
@@ -90,7 +91,7 @@ pub fn deal_damage(g: &mut GameState, idx: usize, mut amt: i32, ctx: &mut StepCt
             // 法師死亡交給 step 終局處理(對應 JS dealDamage 對 mage 直接 return)。
             return;
         }
-        ctx.events.push(Event::Died { id });
+        ctx.events.push(Event::Died { id, cause });
         // 加速★★:擊殺當下若法師仍在加速,續一手(滾雪球)。需用擊殺當下的法師狀態。
         if ctx.tiers.of("haste") >= 2 {
             let mage = g.mage_mut();

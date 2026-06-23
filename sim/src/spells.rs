@@ -9,7 +9,7 @@
 
 use crate::config::*;
 use crate::damage::{deal_damage, StepCtx};
-use crate::events::Event;
+use crate::events::{Cause, Event};
 use crate::grid::{cheb, ent_index_at, heavy_area, in_bounds, los};
 use crate::movement::{do_pull, do_push, shove_dir};
 use crate::state::{Channel, GameState, Kind, Tile};
@@ -259,7 +259,7 @@ pub fn cast(spell: Spell, g: &mut GameState, t: Target, ctx: &mut StepCtx) {
             let (mx, my) = mage_pos(g);
             if let Some(victim) = crate::grid::first_unit_on_ray(g, mx, my, t.x, t.y) {
                 if !g.entities[victim].kind.is_mage() {
-                    deal_damage(g, victim, BOLT_DMG, ctx);
+                    deal_damage(g, victim, BOLT_DMG, Cause::Bolt, ctx);
                 }
             }
         }
@@ -276,7 +276,7 @@ pub fn cast(spell: Spell, g: &mut GameState, t: Target, ctx: &mut StepCtx) {
         Spell::Fire => {
             // 先直擊敵人,再依目標格點油 / 留火(★★)。
             if let Some(e) = enemy_at(g, t.x, t.y) {
-                deal_damage(g, e, FIRE_DMG, ctx);
+                deal_damage(g, e, FIRE_DMG, Cause::Fire, ctx);
             }
             let (tx, ty) = (t.x as usize, t.y as usize);
             if g.tiles[ty][tx] == Tile::Oil {
@@ -339,7 +339,7 @@ pub fn resolve_heavy(g: &mut GameState, cx: i32, cy: i32, ctx: &mut StepCtx) {
     let mut hit: Vec<usize> = Vec::new();
     for (x, y) in heavy_area(g, cx, cy) {
         if let Some(e) = enemy_at(g, x, y) {
-            deal_damage(g, e, HEAVY_DMG, ctx);
+            deal_damage(g, e, HEAVY_DMG, Cause::Fire, ctx);
             if g.entities[e].alive() {
                 hit.push(e);
             }

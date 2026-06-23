@@ -7,7 +7,7 @@
 
 use magicraid_sim::{
     apply_drop, apply_pick, gen_offers, init_room, project_chain, spells::pickable, step, Action,
-    Event, GameState, Kind, PickResult, Reject, RunState, Spell, Status, Target, Tile,
+    Cause, Event, GameState, Kind, PickResult, Reject, RunState, Spell, Status, Target, Tile,
 };
 use std::cell::RefCell;
 
@@ -86,6 +86,18 @@ fn kind_str(k: Kind) -> &'static str {
         Kind::Imp => "imp",
         Kind::Eye => "eye",
         Kind::Boss => "boss",
+    }
+}
+
+/// 致命傷來源 → 字串(殼端行為計數器歸因:火流 / 推進流 / 魔法彈流)。
+fn cause_str(c: Cause) -> &'static str {
+    match c {
+        Cause::Bolt => "bolt",
+        Cause::Fire => "fire",
+        Cause::HazardPush => "hazard",
+        Cause::Crash => "crash",
+        Cause::Enemy => "enemy",
+        Cause::Other => "other",
     }
 }
 
@@ -244,7 +256,9 @@ fn events_json(evs: &[Event]) -> String {
             Event::Damaged { id, amt } => {
                 s.push_str(&format!("{{\"t\":\"dmg\",\"id\":{id},\"amt\":{amt}}}"))
             }
-            Event::Died { id } => s.push_str(&format!("{{\"t\":\"die\",\"id\":{id}}}")),
+            Event::Died { id, cause } => {
+                s.push_str(&format!("{{\"t\":\"die\",\"id\":{id},\"cause\":\"{}\"}}", cause_str(*cause)))
+            }
             Event::Moved { id, from, to } => s.push_str(&format!(
                 "{{\"t\":\"mv\",\"id\":{id},\"fx\":{},\"fy\":{},\"tx\":{},\"ty\":{}}}",
                 from.0, from.1, to.0, to.1

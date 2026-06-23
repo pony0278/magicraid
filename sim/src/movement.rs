@@ -10,7 +10,7 @@
 
 use crate::config::{FIRE_DOT, HASTE_GRANT, PUSH_CRASH, SPIKE_DMG};
 use crate::damage::{deal_damage, StepCtx};
-use crate::events::Event;
+use crate::events::{Cause, Event};
 use crate::grid::{ent_index_at, in_bounds, walkable};
 use crate::state::{GameState, Kind, Tile};
 
@@ -24,10 +24,10 @@ fn sign(n: i32) -> i32 {
 /// 回傳 `true` 表示落點是尖刺(供 `do_pull` 判斷是否中止連拉)。
 fn hazard_on_pushed(g: &mut GameState, idx: usize, x: i32, y: i32, ctx: &mut StepCtx) -> bool {
     if g.tiles[y as usize][x as usize] == Tile::Spike {
-        deal_damage(g, idx, SPIKE_DMG, ctx);
+        deal_damage(g, idx, SPIKE_DMG, Cause::HazardPush, ctx);
         true
     } else if g.fire[y as usize][x as usize] > 0 {
-        deal_damage(g, idx, FIRE_DOT, ctx);
+        deal_damage(g, idx, FIRE_DOT, Cause::HazardPush, ctx);
         false
     } else {
         false
@@ -49,7 +49,7 @@ pub fn do_push(g: &mut GameState, idx: usize, ctx: &mut StepCtx) {
     let (nx, ny) = (ex + sign(ex - mx), ey + sign(ey - my));
 
     if !walkable(g, nx, ny) || ent_index_at(g, nx, ny).is_some() {
-        deal_damage(g, idx, PUSH_CRASH, ctx);
+        deal_damage(g, idx, PUSH_CRASH, Cause::Crash, ctx);
         if ctx.tiers.of("push") >= 2 && g.entities[idx].alive() {
             g.entities[idx].stun = 1; // 推★★:撞擊 → 暈一手
             ctx.events.push(Event::Stunned {
@@ -96,11 +96,11 @@ pub fn do_pull(g: &mut GameState, idx: usize, ctx: &mut StepCtx) {
         move_entity(g, idx, nx, ny, ctx);
         // 落點是尖刺或火 → 受傷並中止連拉(JS 兩個 if 皆 break)。
         if g.tiles[ny as usize][nx as usize] == Tile::Spike {
-            deal_damage(g, idx, SPIKE_DMG, ctx);
+            deal_damage(g, idx, SPIKE_DMG, Cause::HazardPush, ctx);
             break;
         }
         if g.fire[ny as usize][nx as usize] > 0 {
-            deal_damage(g, idx, FIRE_DOT, ctx);
+            deal_damage(g, idx, FIRE_DOT, Cause::HazardPush, ctx);
             break;
         }
     }
@@ -137,10 +137,10 @@ pub fn move_mage_to(g: &mut GameState, x: i32, y: i32, ctx: &mut StepCtx) {
         .expect("法師應存在");
     move_entity(g, mage_idx, x, y, ctx);
     if g.tiles[y as usize][x as usize] == Tile::Spike {
-        deal_damage(g, mage_idx, SPIKE_DMG, ctx);
+        deal_damage(g, mage_idx, SPIKE_DMG, Cause::Other, ctx); // 法師自傷,不計入擊殺歸因
     }
     if g.fire[y as usize][x as usize] > 0 {
-        deal_damage(g, mage_idx, FIRE_DOT, ctx);
+        deal_damage(g, mage_idx, FIRE_DOT, Cause::Other, ctx);
     }
     if g.tiles[y as usize][x as usize] == Tile::Rune {
         g.tiles[y as usize][x as usize] = Tile::Floor;

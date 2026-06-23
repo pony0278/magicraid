@@ -50,6 +50,9 @@ let wasm, mem; // wasm exports + helper
 let state = null;
 let selSpell = null; // 目前選取的法術(target 需瞄準時)
 let pending = null; // 觸控預覽:第一次點的瞄準格 {x,y};點同格才提交(防誤觸)
+// 行為計數器(§10 流派儀表板):從 events 的 Died.cause / HasteGained 逐手累計,收場命名流派。
+const freshKills = () => ({ fire: 0, hazard: 0, bolt: 0, crash: 0, total: 0, haste: 0 });
+let kills = freshKills();
 let gameplayStarted = false;
 let anim = null; // 進行中的動畫(events→重建);null = 靜態
 
@@ -85,6 +88,7 @@ function newRun(seed) {
   wasm.mr_new(seed >>> 0);
   selSpell = null;
   pending = null;
+  kills = freshKills();
   gameplayStarted = false;
   refresh();
   render();
@@ -106,6 +110,10 @@ function doStep(act, x = 0, y = 0, spell = 0) {
   const rejected = wasm.mr_rejected() === 1;
   selSpell = null;
   const events = readEvents();
+  for (const e of events) { // 行為計數器:玩家造成的擊殺依 cause 歸因 + 加速取得次數
+    if (e.t === "die" && e.cause in kills) { kills[e.cause]++; kills.total++; }
+    else if (e.t === "haste") kills.haste++;
+  }
   const reason = wasm.mr_reject_reason();
   refresh(); // state = 新狀態
   logStep(act, x, y, spell, before, events, rejected, reason);
@@ -364,12 +372,29 @@ function renderOverlay() {
       }
     }
   } else if (state.status === ST.COMPLETE) {
-    show("通關 🎉", "一場 run 完成 — 這就是『再來一局』。");
+    show("通關 🎉 — " + runSummary(), killLine());
     btns.appendChild(mkBtn("再玩一次", true, () => { Poki.gameplayStop(); newRun((Math.random() * 0xffffffff) >>> 0); }));
   } else if (state.status === ST.DEFEAT) {
-    show("你被擊倒了 💀", "重來一場 — roguelite 的『再來一局』。");
+    show("你被擊倒了 💀 — " + runSummary(), killLine());
     btns.appendChild(mkBtn("重新開始", true, () => { Poki.gameplayStop(); newRun((Math.random() * 0xffffffff) >>> 0); }));
   }
+}
+
+// run 總結:由實際行為計數器命名流派(§10 儀表板;對玩家是命名,對開發者是 build 多樣性量測)。
+function runSummary() {
+  const styles = [
+    { n: kills.fire, label: "🔥 火流" },
+    { n: kills.hazard, label: "💥 推進流" },
+    { n: kills.bolt + kills.crash, label: "✨ 魔法彈流" },
+  ];
+  styles.sort((a, b) => b.n - a.n);
+  if (styles[0].n === 0) return "純基礎包";
+  const tied = styles.filter((s) => s.n === styles[0].n).length > 1;
+  return tied ? "🌀 混合流" : styles[0].label;
+}
+function killLine() {
+  return `火燒 ${kills.fire} · 推進危險格 ${kills.hazard} · 魔法彈 ${kills.bolt}`
+    + (kills.haste ? ` · 加速 ×${kills.haste}` : "");
 }
 
 // ── Canvas 繪製 ──
