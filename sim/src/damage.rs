@@ -25,6 +25,10 @@ impl TierTable {
     pub fn set(&mut self, id: &'static str, lvl: u8) {
         self.inner.insert(id, lvl);
     }
+    /// 移除某法術等級(丟牌時用,對應 JS `delete tier[oid]`)。
+    pub fn remove(&mut self, id: &str) {
+        self.inner.remove(id);
+    }
 }
 
 /// 一次 `step()` 內的區域可變狀態(B0 §G-6:這些**不進持久 GameState**)。

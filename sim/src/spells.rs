@@ -130,6 +130,22 @@ impl Spell {
     }
 }
 
+/// 所有法術,**依 JS `SPELLS` 物件鍵的插入序**(確定性關鍵:撿取池洗牌前的初始序)。
+pub const SPELL_ORDER: [Spell; 7] = [
+    Spell::Bolt,
+    Spell::Push,
+    Spell::Fire,
+    Spell::Heavy,
+    Spell::OilFlask,
+    Spell::Hook,
+    Spell::Haste,
+];
+
+/// 可撿取池(baseline == false),保持 `SPELL_ORDER` 順序。對應 JS `PICKABLE`。
+pub fn pickable() -> Vec<Spell> {
+    SPELL_ORDER.iter().copied().filter(|s| !s.baseline()).collect()
+}
+
 #[inline]
 fn sign(n: i32) -> i32 {
     (n > 0) as i32 - (n < 0) as i32
