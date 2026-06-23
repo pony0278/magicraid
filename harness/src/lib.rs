@@ -340,3 +340,193 @@ pub fn replay(seed: u32, ops: &[RunOp]) -> (Status, Snapshot) {
 pub fn room_count() -> usize {
     config::ROOMS.len()
 }
+
+// ─────────────────────────── JS↔Rust 對拍 trace ───────────────────────────
+//
+// 逐手吐「op + 該手後的可觀察狀態」JSON,供 Node 端把同一串 op 重放進 `demo1.html`
+// 的 JS sim、逐手比對抓漂移。**不比 time**:JS 用 float、Rust 用整數 1/6,表示法本就不同;
+// 順序若漂掉,位置/HP 會分歧,照樣抓得到。
+
+fn tile_str(t: Tile) -> &'static str {
+    match t {
+        Tile::Floor => "floor",
+        Tile::Wall => "wall",
+        Tile::Wood => "wood",
+        Tile::WoodBurn => "woodburn",
+        Tile::Oil => "oil",
+        Tile::Spike => "spike",
+        Tile::Rune => "rune",
+    }
+}
+
+fn kind_str(k: Kind) -> &'static str {
+    match k {
+        Kind::Mage => "mage",
+        Kind::Imp => "imp",
+        Kind::Eye => "eye",
+        Kind::Boss => "boss",
+    }
+}
+
+fn status_str(s: Status) -> &'static str {
+    match s {
+        Status::AwaitingInput => "input",
+        Status::AwaitingRelease => "release",
+        Status::PickOffered => "pick",
+        Status::RunComplete => "complete",
+        Status::Defeat => "defeat",
+    }
+}
+
+/// 把一個 baseline 動作序列化成 JS 可消費的 op JSON。
+fn action_json(a: Action) -> String {
+    match a {
+        Action::Wait => "{\"op\":\"wait\"}".into(),
+        Action::Potion => "{\"op\":\"potion\"}".into(),
+        Action::Release => "{\"op\":\"release\"}".into(),
+        Action::MoveTo { x, y } => format!("{{\"op\":\"move\",\"x\":{x},\"y\":{y}}}"),
+        Action::Cast { spell, target } => format!(
+            "{{\"op\":\"cast\",\"spell\":\"{}\",\"x\":{},\"y\":{}}}",
+            spell.id(),
+            target.x,
+            target.y
+        ),
+    }
+}
+
+/// 可觀察狀態(不含 time)序列化:存活實體 + fire + tiles + status + room + potions + acquired。
+fn state_json(g: &GameState, run: &RunState, status: Status) -> String {
+    let mut s = String::with_capacity(1024);
+    s.push_str(&format!(
+        "\"status\":\"{}\",\"room\":{},\"potions\":{},",
+        status_str(status),
+        run.room_idx,
+        run.potions
+    ));
+    // acquired
+    s.push_str("\"acquired\":[");
+    for (i, sp) in run.acquired.iter().enumerate() {
+        if i > 0 {
+            s.push(',');
+        }
+        s.push_str(&format!("\"{}\"", sp.id()));
+    }
+    s.push_str("],");
+    // 存活實體(依 id 排序 → 與 JS 比對時順序無關)
+    let mut ents: Vec<&Entity> = g.entities.iter().filter(|e| e.alive()).collect();
+    ents.sort_by_key(|e| e.id);
+    s.push_str("\"ents\":[");
+    for (i, e) in ents.iter().enumerate() {
+        if i > 0 {
+            s.push(',');
+        }
+        s.push_str(&format!(
+            "{{\"id\":{},\"k\":\"{}\",\"x\":{},\"y\":{},\"hp\":{}}}",
+            e.id,
+            kind_str(e.kind),
+            e.x,
+            e.y,
+            e.hp
+        ));
+    }
+    s.push_str("],");
+    grid_json(&mut s, "fire", &g.fire);
+    s.push(',');
+    tiles_json(&mut s, &g.tiles);
+    s
+}
+
+fn grid_json(s: &mut String, key: &str, grid: &[Vec<i32>]) {
+    s.push_str(&format!("\"{key}\":["));
+    for (y, row) in grid.iter().enumerate() {
+        if y > 0 {
+            s.push(',');
+        }
+        s.push('[');
+        for (x, v) in row.iter().enumerate() {
+            if x > 0 {
+                s.push(',');
+            }
+            s.push_str(&v.to_string());
+        }
+        s.push(']');
+    }
+    s.push(']');
+}
+
+fn tiles_json(s: &mut String, tiles: &[Vec<Tile>]) {
+    s.push_str("\"tiles\":[");
+    for (y, row) in tiles.iter().enumerate() {
+        if y > 0 {
+            s.push(',');
+        }
+        s.push('[');
+        for (x, t) in row.iter().enumerate() {
+            if x > 0 {
+                s.push(',');
+            }
+            s.push_str(&format!("\"{}\"", tile_str(*t)));
+        }
+        s.push(']');
+    }
+    s.push(']');
+}
+
+/// 跑 baseline 一場,逐手吐 `{op, state}` 的 JSON 陣列(對拍用)。
+/// 第一筆 op="init"(房 0 載入後、未行動);pick/換房 op="nextroom"(JS 端套 acquired + loadRoom)。
+pub fn trace_json(seed: u32, budget: usize) -> String {
+    let mut run = RunState::new(seed);
+    let mut g = init_room(0);
+    let mut status = Status::AwaitingInput;
+    let mut steps = 0usize;
+
+    let mut out = format!("{{\"seed\":{seed},\"steps\":[");
+    let mut first = true;
+    let mut emit = |out: &mut String, op: &str, g: &GameState, run: &RunState, status: Status| {
+        if !first {
+            out.push(',');
+        }
+        first = false;
+        out.push_str(&format!("{{\"op\":{op},{}}}", state_json(g, run, status)));
+    };
+
+    emit(&mut out, "{\"op\":\"init\"}", &g, &run, status);
+
+    loop {
+        match status {
+            Status::AwaitingInput | Status::AwaitingRelease => {
+                let a = if status == Status::AwaitingRelease {
+                    Action::Wait
+                } else {
+                    choose_action(&g, &run)
+                };
+                let op = action_json(a);
+                status = step(&mut g, &mut run, a).status;
+                steps += 1;
+                emit(&mut out, &op, &g, &run, status);
+                if steps >= budget {
+                    break;
+                }
+            }
+            Status::PickOffered => {
+                let offers = gen_offers(&run);
+                if let Some(pick) = choose_pick(&offers) {
+                    match apply_pick(&mut run, pick) {
+                        PickResult::Done => {}
+                        PickResult::NeedDrop => {
+                            let drop = run.acquired[0];
+                            apply_drop(&mut run, pick, drop);
+                        }
+                    }
+                }
+                run.room_idx += 1;
+                g = init_room(run.room_idx);
+                status = Status::AwaitingInput;
+                emit(&mut out, "{\"op\":\"nextroom\"}", &g, &run, status);
+            }
+            Status::RunComplete | Status::Defeat => break,
+        }
+    }
+    out.push_str("]}");
+    out
+}

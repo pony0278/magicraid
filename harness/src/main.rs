@@ -1,13 +1,20 @@
 //! harness CLI:`harness [N] [budget]` —— 跑 seed 0..N,回報結果分佈、抵達房數、
 //! 確定性回放是否 bit 一致、有無 panic。任一硬性檢查失敗 → 非零退出(可當 CI 閘門)。
 
-use harness::{play, replay, room_count};
+use harness::{play, replay, room_count, trace_json};
 use magicraid_sim::Status;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 
 fn main() {
     let mut args = std::env::args().skip(1);
     let first = args.next();
+    if first.as_deref() == Some("trace") {
+        // `harness trace <seed> [budget]` → 逐手狀態 JSON(JS↔Rust 對拍用,給 Node 消費)。
+        let seed: u32 = args.next().and_then(|s| s.parse().ok()).unwrap_or(0);
+        let budget: usize = args.next().and_then(|s| s.parse().ok()).unwrap_or(5000);
+        println!("{}", trace_json(seed, budget));
+        return;
+    }
     if first.as_deref() == Some("debug") {
         for seed in 0..12u32 {
             let t = play(seed, 5000);
