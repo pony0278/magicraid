@@ -27,9 +27,10 @@ function play(seed, budget = 4000) {
     if (!foes.length) { ex.mr_step(0, 0, 0, 0); steps++; continue; }
     foes.sort((a, b) => Math.max(Math.abs(a.x-mage.x),Math.abs(a.y-mage.y)) - Math.max(Math.abs(b.x-mage.x),Math.abs(b.y-mage.y)));
     const e = foes[0];
-    const d = Math.max(Math.abs(e.x-mage.x), Math.abs(e.y-mage.y));
-    if (d <= 5) ex.mr_step(3, e.x, e.y, 0); // bolt
-    else ex.mr_step(2, mage.x + Math.sign(e.x-mage.x), mage.y + Math.sign(e.y-mage.y), 0); // step toward
+    // 先試轟最近敵;超距/無視線被拒(mr_rejected:無時間流逝)→ 改朝它走一步。
+    // 不寫死射程 → bolt 射程改了也不會壞(這正是上次 5→3 弄壞 smoke 的教訓)。
+    ex.mr_step(3, e.x, e.y, 0); // bolt
+    if (ex.mr_rejected()) ex.mr_step(2, mage.x + Math.sign(e.x-mage.x), mage.y + Math.sign(e.y-mage.y), 0); // step toward
     steps++;
   }
   return { res: "timeout", picks, steps };
