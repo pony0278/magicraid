@@ -40,7 +40,7 @@ pub const HASTE_GRANT: u32 = 4; // 加速持續手數(CFG.hasteGrant)
 
 // ── 法術數值(CFG.bolt/fire/heavy/hook/oil,行 156–165)。 ──
 pub const BOLT_DMG: i32 = 3;
-pub const BOLT_RANGE: i32 = 5;
+pub const BOLT_RANGE: i32 = 3;
 pub const FIRE_DMG: i32 = 3; // 火球直擊傷害
 pub const FIRE_RANGE: i32 = 4;
 pub const HEAVY_DMG: i32 = 5; // 烈焰術 AoE 傷害

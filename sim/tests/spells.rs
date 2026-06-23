@@ -73,10 +73,10 @@ fn bolt_validate_and_damage() {
 #[test]
 fn bolt_is_intercepted_by_unit_in_front() {
     // A(id1) 在 B(id2) 前面,瞄準 B → A 攔截中彈,B 沒事(身體當掩體)。
-    let mut g = make(&["@.o.o"]); // 法師(0,0)、A(2,0)、B(4,0)
+    let mut g = make(&["@.oo"]); // 法師(0,0)、A(2,0)、B(3,0);B 在射程 3 內
     let mut ctx = StepCtx::new();
-    assert_eq!(validate(Spell::Bolt, &g, Target::cell(4, 0)), Ok(()), "瞄準 B 合法");
-    cast(Spell::Bolt, &mut g, Target::cell(4, 0), &mut ctx);
+    assert_eq!(validate(Spell::Bolt, &g, Target::cell(3, 0)), Ok(()), "瞄準 B 合法");
+    cast(Spell::Bolt, &mut g, Target::cell(3, 0), &mut ctx);
     let a = g.entities.iter().find(|e| e.id == 1).unwrap().hp;
     let b = g.entities.iter().find(|e| e.id == 2).unwrap().hp;
     assert_eq!(a, IMP_HP - BOLT_DMG, "前方的 A 應攔截中彈");
@@ -98,7 +98,7 @@ fn bolt_rejects_no_los_and_empty() {
 
 #[test]
 fn bolt_out_of_range() {
-    let g = make(&["@......o"]); // 距離 7 > range 5
+    let g = make(&["@......o"]); // 距離 7 > range 3
     assert_eq!(
         validate(Spell::Bolt, &g, Target::cell(7, 0)),
         Err(Reject::OutOfRange)
