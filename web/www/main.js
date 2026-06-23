@@ -111,21 +111,23 @@ function doStep(act, x = 0, y = 0, spell = 0) {
     return;
   }
   $("feedback").textContent = "";
-  startAnim(before, entMap(state), events);
+  startAnim(before, events);
 }
 
-// 開始一段動畫:實體 before→after 補間 + 命中閃光 + 死亡淡出 + 飄字。
-function startAnim(before, after, events) {
-  const dmg = {};
-  for (const e of events) if (e.t === "dmg") dmg[e.id] = (dmg[e.id] || 0) + e.amt;
-  anim = {
-    t0: performance.now(),
-    dur: 260,
-    before,
-    after,
-    dmgIds: new Set(Object.keys(dmg).map(Number)),
-    floats: Object.entries(dmg).map(([id, amt]) => ({ id: +id, amt })),
-  };
+// 開始動畫:把這手的事件**依序逐格重放**(看得到推→敵人走回來、命中閃光、死亡淡出)。
+// 對應 B0 §C-4 events→動畫;不再只補間 net,否則「推了又走回」會看起來沒動。
+function startAnim(before, events) {
+  const disp = {};
+  for (const id in before) disp[id] = { ...before[id] };
+  const segs = [];
+  for (const e of events) {
+    if (e.t === "mv") segs.push({ k: "mv", id: e.id, from: [e.fx, e.fy], to: [e.tx, e.ty] });
+    else if (e.t === "dmg") segs.push({ k: "dmg", id: e.id, amt: e.amt });
+    else if (e.t === "die") segs.push({ k: "die", id: e.id });
+  }
+  if (segs.length === 0) { render(); return; }
+  const dur = Math.max(70, Math.min(140, Math.floor(700 / segs.length)));
+  anim = { disp, segs, i: 0, t0: performance.now(), dur };
   requestAnimationFrame(tick);
 }
 
@@ -134,12 +136,26 @@ function finishAnim() {
   render(); // 落定到最終狀態 + 更新面板
 }
 
+// 套用一個片段的「結果」到顯示狀態(片段播完時)。
+function applySeg(seg) {
+  const e = anim.disp[seg.id];
+  if (seg.k === "mv" && e) { e.x = seg.to[0]; e.y = seg.to[1]; }
+  else if (seg.k === "dmg" && e) { e.hp -= seg.amt; }
+  else if (seg.k === "die") { delete anim.disp[seg.id]; }
+}
+
 function tick(now) {
   if (!anim) return;
-  const p = Math.min(1, (now - anim.t0) / anim.dur);
-  drawFrame(p);
-  if (p < 1) requestAnimationFrame(tick);
-  else finishAnim();
+  let p = (now - anim.t0) / anim.dur;
+  if (p >= 1) {
+    applySeg(anim.segs[anim.i]);
+    anim.i++;
+    if (anim.i >= anim.segs.length) { finishAnim(); return; }
+    anim.t0 = now;
+    p = 0;
+  }
+  drawAnimFrame(p);
+  requestAnimationFrame(tick);
 }
 
 function flash(msg) { $("feedback").textContent = msg; }
@@ -344,35 +360,33 @@ function drawStatic() {
   for (const e of state.ents) drawEntity(e, cell, 1, 0);
 }
 
-// 動畫幀:實體 before→after 補間;命中閃光;死亡(在 before 有、after 無)淡出;傷害飄字。
-function drawFrame(p) {
+// 動畫幀:逐片段重放當前 seg(移動補間 / 命中閃光 + 飄字 / 死亡淡出),其餘實體靜止於 disp。
+function drawAnimFrame(p) {
   if (!state) return;
   fitCanvas();
   const cell = cv._cell;
   const ease = 1 - (1 - p) * (1 - p);
+  const seg = anim.segs[anim.i];
   ctx.clearRect(0, 0, cv.width, cv.height);
   drawBackground(cell);
-  const ids = new Set([...Object.keys(anim.before), ...Object.keys(anim.after)].map(Number));
-  for (const id of ids) {
-    const b = anim.before[id], a = anim.after[id];
-    const flash = anim.dmgIds.has(id) ? 1 - p : 0;
-    if (b && a) {
-      drawEntity({ ...a, x: b.x + (a.x - b.x) * ease, y: b.y + (a.y - b.y) * ease }, cell, 1, flash);
-    } else if (b) {
-      drawEntity({ ...b, hp: 0 }, cell, 1 - p, flash); // 死亡淡出
-    } else if (a) {
-      drawEntity(a, cell, p, 0); // 新生(罕見)
+  for (const id in anim.disp) {
+    const e = anim.disp[id];
+    let x = e.x, y = e.y, alpha = 1, flash = 0;
+    if (+id === seg.id) {
+      if (seg.k === "mv") { x = seg.from[0] + (seg.to[0] - seg.from[0]) * ease; y = seg.from[1] + (seg.to[1] - seg.from[1]) * ease; }
+      else if (seg.k === "dmg") flash = 1 - p;
+      else if (seg.k === "die") alpha = 1 - p;
     }
+    drawEntity({ ...e, x, y }, cell, alpha, flash);
   }
-  // 傷害飄字(往上飄、淡出)。
-  ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  ctx.font = `${Math.floor(cell * 0.42)}px system-ui, sans-serif`;
-  for (const f of anim.floats) {
-    const src = anim.after[f.id] || anim.before[f.id];
-    if (!src) continue;
+  // 傷害飄字
+  if (seg.k === "dmg" && anim.disp[seg.id]) {
+    const e = anim.disp[seg.id];
     ctx.globalAlpha = 1 - p;
     ctx.fillStyle = "#ffd0c0";
-    ctx.fillText(`-${f.amt}`, src.x * cell + cell / 2, src.y * cell + cell / 2 - p * cell * 0.9);
+    ctx.font = `${Math.floor(cell * 0.42)}px system-ui, sans-serif`;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(`-${seg.amt}`, e.x * cell + cell / 2, e.y * cell + cell / 2 - p * cell * 0.7);
     ctx.globalAlpha = 1;
   }
 }
