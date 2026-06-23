@@ -35,6 +35,9 @@
   button.act:disabled{opacity:.4}
   .star{color:var(--gold)}
   #feedback{min-height:20px;font-size:13px;color:var(--orange);padding:0 6px}
+  #log{font:11px/1.5 ui-monospace,Menlo,Consolas,monospace;color:var(--muted);
+    background:#1a1428;border:1px solid var(--line);border-radius:8px;margin:4px 6px;padding:6px 8px;
+    height:104px;overflow-y:auto;white-space:pre-wrap}
   #overlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
     background:rgba(15,11,25,.82);border-radius:12px;padding:20px;text-align:center}
   #overlay.on{display:flex}
@@ -62,6 +65,7 @@
   </div>
   <div id="feedback"></div>
   <div id="bar"></div>
+  <div id="log" title="動作紀錄(調查用)"></div>
 </div>
 <script src="main.js"></script>
 </body>

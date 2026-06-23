@@ -102,10 +102,11 @@ function doStep(act, x = 0, y = 0, spell = 0) {
   const rejected = wasm.mr_rejected() === 1;
   selSpell = null;
   const events = readEvents();
+  const reason = wasm.mr_reject_reason();
   refresh(); // state = 新狀態
+  logStep(act, x, y, spell, before, events, rejected, reason);
   if (rejected) {
-    const why = REJECT_MSG[wasm.mr_reject_reason()] || "那一手不行";
-    flash("✋ " + why);
+    flash("✋ " + (REJECT_MSG[reason] || "那一手不行"));
     render();
     return;
   }
@@ -142,6 +143,38 @@ function tick(now) {
 }
 
 function flash(msg) { $("feedback").textContent = msg; }
+
+// ── 動作紀錄(調查用)──
+const logLines = [];
+function logMsg(s) {
+  logLines.push(s);
+  if (logLines.length > 30) logLines.shift();
+  const el = $("log");
+  el.textContent = logLines.join("\n");
+  el.scrollTop = el.scrollHeight;
+}
+const ACT_NAME = { 0: "待機", 1: "回血瓶", 2: "移動", 4: "釋放" };
+// 把一手記成一行:動作→目標 [法師位置 / 切比雪夫距離]:結果(移動/傷害 或 拒絕原因)。
+function logStep(act, x, y, spell, before, events, rejected, reason) {
+  const name = act === 3 ? `施法:${SPELLS[spell].name}` : ACT_NAME[act] || `act${act}`;
+  const m = before[0]; // 法師(id 0)行動前位置
+  let head = name;
+  if (act === 2 || act === 3) {
+    const d = m ? Math.max(Math.abs(x - m.x), Math.abs(y - m.y)) : "?";
+    head += `→(${x},${y}) [法(${m ? m.x : "?"},${m ? m.y : "?"}) d=${d}]`;
+  }
+  let out;
+  if (rejected) {
+    out = "✗ " + (REJECT_MSG[reason] || `拒絕#${reason}`);
+  } else {
+    const mv = events.filter((e) => e.t === "mv").map((e) => `#${e.id}(${e.fx},${e.fy})→(${e.tx},${e.ty})`);
+    const dmg = events.filter((e) => e.t === "dmg").map((e) => `#${e.id}-${e.amt}`);
+    const die = events.filter((e) => e.t === "die").map((e) => `☠#${e.id}`);
+    out = "✓ " + [mv.length ? "移:" + mv.join(" ") : "", dmg.length ? "傷:" + dmg.join(" ") : "", die.join(" ")]
+      .filter(Boolean).join(" | ") || "✓(無事件)";
+  }
+  logMsg(`${head}: ${out}`);
+}
 
 // ── 點擊格子 ──
 function cellFromEvent(ev) {
