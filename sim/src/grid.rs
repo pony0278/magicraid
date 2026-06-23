@@ -50,6 +50,20 @@ pub fn walkable(g: &GameState, x: i32, y: i32) -> bool {
     in_bounds(g, x, y) && !blocks_move(g, x, y)
 }
 
+/// 砸擊範圍:`(cx,cy)` 周圍 3×3(含中心)中非牆的格。對應 JS `slamArea`(行 247)。
+pub fn slam_area(g: &GameState, cx: i32, cy: i32) -> Vec<(i32, i32)> {
+    let mut a = Vec::new();
+    for dy in -1..=1 {
+        for dx in -1..=1 {
+            let (x, y) = (cx + dx, cy + dy);
+            if in_bounds(g, x, y) && g.tiles[y as usize][x as usize] != Tile::Wall {
+                a.push((x, y));
+            }
+        }
+    }
+    a
+}
+
 /// 半進位整數除法:`round(num/den)`,den>0、num≥0(線段內插點座標恆非負)。
 ///
 /// 對應 JS `Math.round`(.5 向 +∞)。`round(n/d) = floor(n/d + 1/2) = (2n+d)/(2d)`。

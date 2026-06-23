@@ -50,9 +50,12 @@ pub struct Entity {
     /// 眩暈剩餘手數(電擊/震退;對應 JS entity.stun)。
     pub stun: u32,
     pub channel: Option<Channel>,
-    // boss 專用旗標(對應 JS pendingSlam/exhausted),骨架先帶著,AI 待 ai.rs。
+    // boss 專用(對應 JS pendingSlam/exhausted/slam)。
     pub pending_slam: bool,
     pub exhausted: bool,
+    /// 已預告(telegraph)的砸擊格;`None` = 尚未布告。對應 JS `boss.slam`。
+    /// 初始 telegraph 由 `init_room` 在房載入時 arm(對應 JS loadRoom 行 224);未 port 前為 `None`。
+    pub slam: Option<Vec<(i32, i32)>>,
 }
 
 impl Entity {
@@ -92,6 +95,7 @@ impl Entity {
             channel: None,
             pending_slam: kind == Kind::Boss,
             exhausted: false,
+            slam: None,
         }
     }
 }

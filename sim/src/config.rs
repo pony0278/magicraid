@@ -38,10 +38,14 @@ pub fn clamp_speed(speed_halves: u8) -> u8 {
 pub const MAGE_HP: i32 = 14;
 pub const HASTE_GRANT: u32 = 4; // 加速持續手數(CFG.hasteGrant)
 
-// 敵人(CFG.imp / eye / boss)
+// 敵人(CFG.imp / eye / boss,行 161–163)
 pub const IMP_HP: i32 = 5;
+pub const IMP_DMG: i32 = 3; // 小鬼貼臉攻擊
 pub const EYE_HP: i32 = 4;
+pub const EYE_DMG: i32 = 2; // 符文眼射擊
+pub const EYE_RANGE: i32 = 4; // 符文眼射程(切比雪夫)
 pub const BOSS_HP: i32 = 24;
+pub const BOSS_SLAM: i32 = 6; // 魔像砸擊傷害
 
 // ── 位移 / 危險格(CFG.push / spikeDmg,行 159–160)。 ──
 /// 推/震/勾撞上阻擋時的撞擊傷害(CFG.push.crash)。
