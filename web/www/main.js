@@ -98,6 +98,7 @@ function doStep(act, x = 0, y = 0, spell = 0) {
   if (anim) finishAnim(); // 連點:先把上一段動畫收尾
   firstInput();
   const before = entMap(state); // 動畫起點(這手之前的位置/血量)
+  const fireBefore = state.fire.map((r) => r.slice()); // 火蔓延動畫:step 前的火格快照
   wasm.mr_step(act, x, y, spell);
   const rejected = wasm.mr_rejected() === 1;
   selSpell = null;
@@ -111,29 +112,77 @@ function doStep(act, x = 0, y = 0, spell = 0) {
     return;
   }
   $("feedback").textContent = "";
-  startAnim(before, events);
+  startAnim(before, events, fireBefore);
 }
 
-// 開始動畫:把這手的事件**依序逐格重放**(看得到推→敵人走回來、命中閃光、死亡淡出)。
-// 對應 B0 §C-4 events→動畫;不再只補間 net,否則「推了又走回」會看起來沒動。
-function startAnim(before, events) {
+// ── 火蔓延動畫(view-diff,A 案;不碰 sim)──
+// 比對 step 前後的 fire 格,對「新點燃」的格子按「離既有火源的 BFS 距離」排圈,漣漪式逐圈亮起。
+// 拿不到 sim 內真實點燃順序,用距離近似(Demo 0 夠看);純表現層,確定性不受影響。
+const FIRE_RING_MS = 55;     // 每一圈漣漪間隔
+const FIRE_FADE_MS = 90;     // 單格亮起的淡入
+const FIRE_REVEAL_CAP = 450; // 整段火蔓延最長(避免長油帶拖太久)
+
+function computeFireRings(fireBefore) {
+  const W = state.w, H = state.h, ring = new Map(), now = state.fire;
+  const newly = [];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (now[y][x] > 0 && !(fireBefore[y] && fireBefore[y][x] > 0)) newly.push([x, y]);
+  }
+  if (newly.length === 0) return { ring, maxRing: 0 };
+  const newlySet = new Set(newly.map(([x, y]) => y * W + x));
+  // 火源 = step 前就在燒的格子;從它們 BFS 出去給新格排圈。
+  const q = [];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (fireBefore[y] && fireBefore[y][x] > 0) q.push([x, y, 0]);
+  }
+  if (q.length === 0) { // 無前火源(全新點燃,如火球炸乾油)→ 同圈一起亮
+    for (const [x, y] of newly) ring.set(y * W + x, 0);
+    return { ring, maxRing: 0 };
+  }
+  let head = 0, maxRing = 0;
+  while (head < q.length) {
+    const [x, y, d] = q[head++];
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      if (!dx && !dy) continue;
+      const nx = x + dx, ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+      const k = ny * W + nx;
+      if (newlySet.has(k) && !ring.has(k)) { ring.set(k, d + 1); maxRing = Math.max(maxRing, d + 1); q.push([nx, ny, d + 1]); }
+    }
+  }
+  for (const [x, y] of newly) { const k = y * W + x; if (!ring.has(k)) { ring.set(k, 1); maxRing = Math.max(maxRing, 1); } } // 與火源斷開的孤格
+  return { ring, maxRing };
+}
+
+// 開始動畫:把這手的事件**依序逐格重放**(看得到推→敵人走回來、命中閃光、死亡淡出),
+// 火蔓延則沿整段時間漣漪亮起。對應 B0 §C-4 events→動畫;不再只補間 net。
+function startAnim(before, events, fireBefore) {
   const disp = {};
   for (const id in before) disp[id] = { ...before[id] };
   const segs = [];
   for (const e of events) {
     if (e.t === "mv") segs.push({ k: "mv", id: e.id, from: [e.fx, e.fy], to: [e.tx, e.ty] });
     else if (e.t === "dmg") segs.push({ k: "dmg", id: e.id, amt: e.amt });
+    else if (e.t === "heal") segs.push({ k: "heal", id: e.id, amt: e.amt });
     else if (e.t === "die") segs.push({ k: "die", id: e.id });
   }
-  if (segs.length === 0) { render(); return; }
-  const dur = Math.max(70, Math.min(140, Math.floor(700 / segs.length)));
-  anim = { disp, segs, i: 0, t0: performance.now(), dur };
+  const { ring: fireRing, maxRing } = computeFireRings(fireBefore);
+  const ringMs = maxRing > 0 ? Math.min(FIRE_RING_MS, FIRE_REVEAL_CAP / maxRing) : FIRE_RING_MS;
+  const fireDur = fireRing.size > 0 ? maxRing * ringMs + FIRE_FADE_MS : 0;
+  if (segs.length === 0 && fireDur === 0) { render(); return; } // 無事可演
+  const dur = segs.length > 0 ? Math.max(70, Math.min(140, Math.floor(700 / segs.length))) : 0;
+  anim = {
+    disp, segs, dur, applied: 0,
+    tStart: performance.now(),
+    totalDur: Math.max(segs.length * dur, fireDur),
+    fireRing, ringMs, fireFade: FIRE_FADE_MS,
+  };
   requestAnimationFrame(tick);
 }
 
 function finishAnim() {
   anim = null;
-  render(); // 落定到最終狀態 + 更新面板
+  render(); // 落定到最終狀態 + 更新面板(火格也回到完整態)
 }
 
 // 套用一個片段的「結果」到顯示狀態(片段播完時)。
@@ -141,21 +190,29 @@ function applySeg(seg) {
   const e = anim.disp[seg.id];
   if (seg.k === "mv" && e) { e.x = seg.to[0]; e.y = seg.to[1]; }
   else if (seg.k === "dmg" && e) { e.hp -= seg.amt; }
+  else if (seg.k === "heal" && e) { e.hp += seg.amt; }
   else if (seg.k === "die") { delete anim.disp[seg.id]; }
 }
 
+// 全段以 tStart 為基準的全域時間:實體 seg 逐格推進,火蔓延沿同一時鐘漣漪。
 function tick(now) {
   if (!anim) return;
-  let p = (now - anim.t0) / anim.dur;
-  if (p >= 1) {
-    applySeg(anim.segs[anim.i]);
-    anim.i++;
-    if (anim.i >= anim.segs.length) { finishAnim(); return; }
-    anim.t0 = now;
-    p = 0;
-  }
-  drawAnimFrame(p);
+  const el = now - anim.tStart;
+  const segDone = anim.dur > 0 ? Math.min(anim.segs.length, Math.floor(el / anim.dur)) : anim.segs.length;
+  while (anim.applied < segDone) { applySeg(anim.segs[anim.applied]); anim.applied++; }
+  if (el >= anim.totalDur) { finishAnim(); return; }
+  drawAnimFrame(el);
   requestAnimationFrame(tick);
+}
+
+// 火格透明度(依漣漪圈到達時間);非新點燃格回 1(前火源/最終態照常)。
+function fireAlphaAt(el) {
+  const W = state.w;
+  return (x, y) => {
+    const r = anim.fireRing.get(y * W + x);
+    if (r === undefined) return 1;
+    return Math.max(0, Math.min(1, (el - r * anim.ringMs) / anim.fireFade));
+  };
 }
 
 function flash(msg) { $("feedback").textContent = msg; }
@@ -316,8 +373,8 @@ function fitCanvas() {
   cv.width = state.w * cell; cv.height = state.h * cell; cv._cell = cell;
 }
 
-// 地形/火/預告(永遠以最終狀態繪製)。
-function drawBackground(cell) {
+// 地形/火/預告。fireAlpha(x,y)→0..1 供火蔓延漣漪;省略 = 全亮(靜態/最終態)。
+function drawBackground(cell, fireAlpha) {
   for (let y = 0; y < state.h; y++) for (let x = 0; x < state.w; x++) {
     const t = state.tiles[y][x];
     ctx.fillStyle = COLORS[t] || "#3b3157";
@@ -325,7 +382,14 @@ function drawBackground(cell) {
     if (t === TILE.SPIKE) { ctx.fillStyle = "#c45"; glyph("▲", x, y, cell, 0.5); }
     if (t === TILE.RUNE) { glyph("⚡", x, y, cell, 0.6); }
     if (t === TILE.WOOD || t === TILE.WOODBURN) { ctx.strokeStyle = "#0004"; ctx.strokeRect(x*cell+2, y*cell+2, cell-5, cell-5); }
-    if (state.fire[y][x] > 0) { ctx.fillStyle = "rgba(255,122,60,.55)"; ctx.fillRect(x*cell, y*cell, cell-1, cell-1); glyph("🔥", x, y, cell, 0.6); }
+    if (state.fire[y][x] > 0) {
+      const fa = fireAlpha ? fireAlpha(x, y) : 1;
+      if (fa > 0) {
+        ctx.globalAlpha = fa;
+        ctx.fillStyle = "rgba(255,122,60,.55)"; ctx.fillRect(x*cell, y*cell, cell-1, cell-1); glyph("🔥", x, y, cell, 0.6);
+        ctx.globalAlpha = 1;
+      }
+    }
   }
   for (const [cx, cy] of state.slamCells) {
     ctx.fillStyle = "rgba(226,87,76,.4)";
@@ -335,11 +399,12 @@ function drawBackground(cell) {
   }
 }
 
-// 畫一隻實體(x,y 為格座標,可為小數以做補間;flash 0–1 命中閃光;alpha 死亡淡出)。
-function drawEntity(e, cell, alpha, flash) {
+// 畫一隻實體(x,y 為格座標,可為小數以做補間;flash 0–1 閃光;alpha 死亡淡出;
+// flashKind "heal" = 綠色回血閃光,其餘 = 紅色命中閃光)。
+function drawEntity(e, cell, alpha, flash, flashKind) {
   ctx.globalAlpha = alpha;
   if (flash > 0) {
-    ctx.fillStyle = `rgba(255,90,80,${0.6 * flash})`;
+    ctx.fillStyle = flashKind === "heal" ? `rgba(120,230,140,${0.6 * flash})` : `rgba(255,90,80,${0.6 * flash})`;
     ctx.fillRect(e.x * cell, e.y * cell, cell - 1, cell - 1);
   }
   glyph(KIND_ICON[e.k] || "?", e.x, e.y, cell, 0.62);
@@ -360,33 +425,37 @@ function drawStatic() {
   for (const e of state.ents) drawEntity(e, cell, 1, 0);
 }
 
-// 動畫幀:逐片段重放當前 seg(移動補間 / 命中閃光 + 飄字 / 死亡淡出),其餘實體靜止於 disp。
-function drawAnimFrame(p) {
+// 動畫幀(el = 自 tStart 起的毫秒):畫進行中的 seg(移動補間 / 閃光 + 飄字 / 死亡淡出),
+// 其餘實體靜止於 disp;火格依漣漪時間亮起。seg 全播完後仍可能在等火蔓延收尾。
+function drawAnimFrame(el) {
   if (!state) return;
   fitCanvas();
   const cell = cv._cell;
-  const ease = 1 - (1 - p) * (1 - p);
-  const seg = anim.segs[anim.i];
   ctx.clearRect(0, 0, cv.width, cv.height);
-  drawBackground(cell);
+  drawBackground(cell, fireAlphaAt(el));
+  const ai = anim.applied;
+  const seg = ai < anim.segs.length ? anim.segs[ai] : null;
+  const p = seg && anim.dur > 0 ? Math.min(1, (el - ai * anim.dur) / anim.dur) : 0;
+  const ease = 1 - (1 - p) * (1 - p);
   for (const id in anim.disp) {
     const e = anim.disp[id];
     let x = e.x, y = e.y, alpha = 1, flash = 0;
-    if (+id === seg.id) {
+    if (seg && +id === seg.id) {
       if (seg.k === "mv") { x = seg.from[0] + (seg.to[0] - seg.from[0]) * ease; y = seg.from[1] + (seg.to[1] - seg.from[1]) * ease; }
-      else if (seg.k === "dmg") flash = 1 - p;
+      else if (seg.k === "dmg" || seg.k === "heal") flash = 1 - p;
       else if (seg.k === "die") alpha = 1 - p;
     }
-    drawEntity({ ...e, x, y }, cell, alpha, flash);
+    const fk = seg && +id === seg.id && seg.k === "heal" ? "heal" : "hit";
+    drawEntity({ ...e, x, y }, cell, alpha, flash, fk);
   }
-  // 傷害飄字
-  if (seg.k === "dmg" && anim.disp[seg.id]) {
+  // 傷害/回血飄字
+  if (seg && (seg.k === "dmg" || seg.k === "heal") && anim.disp[seg.id]) {
     const e = anim.disp[seg.id];
     ctx.globalAlpha = 1 - p;
-    ctx.fillStyle = "#ffd0c0";
+    ctx.fillStyle = seg.k === "heal" ? "#bff5c0" : "#ffd0c0";
     ctx.font = `${Math.floor(cell * 0.42)}px system-ui, sans-serif`;
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText(`-${seg.amt}`, e.x * cell + cell / 2, e.y * cell + cell / 2 - p * cell * 0.7);
+    ctx.fillText(`${seg.k === "heal" ? "+" : "-"}${seg.amt}`, e.x * cell + cell / 2, e.y * cell + cell / 2 - p * cell * 0.7);
     ctx.globalAlpha = 1;
   }
 }

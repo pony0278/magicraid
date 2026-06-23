@@ -58,5 +58,8 @@ cd web/www && python3 -m http.server 8080  # → http://localhost:8080
 - ✅ 可玩殼:Canvas 渲染、tap 移動 / 選法術再 tap 目標(觸控友善 ≥46px)、順序鏈、
   三選一 / 勝敗 overlay、回血瓶、boss 砸擊預告紅格、系統字型(無外部請求)。
 - ✅ Poki SDK 薄殼(有則用、無則 no-op):`gameLoadingFinished` / `gameplayStart`(首次輸入)/ `gameplayStop`。
-- ⏳ 待辦:events→動畫(目前每手整盤重繪,無逐格動畫)、16:9 縮放填滿打磨、丟牌 UI、
-  Poki SDK 廣告點(死亡重來 / 兩局之間)、**JS↔Rust 對拍**(demo1.html JS sim vs 這顆 WASM)。
+- ✅ events→動畫:`mr_events()` 過 ABI,殼端逐格重放移動補間 / 命中閃光+飄字 / 死亡淡出 / 回血飄字,
+  連點可跳過。**火蔓延 view-diff(A 案)**:比對 step 前後 `fire` 格,新點燃格按離火源 BFS 距離漣漪亮起
+  (純表現層、不碰 sim,確定性不受影響)。
+- ⏳ 待辦:法術投射物 / `stun`·`haste`·`intr` 視覺(需 cast event 帶 target,屬 sim)、16:9 縮放填滿打磨、
+  丟牌 UI、Poki SDK 廣告點(死亡重來 / 兩局之間)、**JS↔Rust 對拍**(demo1.html JS sim vs 這顆 WASM)。
