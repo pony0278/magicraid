@@ -1,0 +1,5 @@
+# Workspace 根:sim(確定性核,lib + 未來 wasm)+ harness(native 工具,跑批次種子驗證)。
+# harness 與未來客戶端跑「同一份 sim」(護欄 A);harness 只是外圍工具,不擁有 sim 邏輯。
+[workspace]
+members = ["sim", "harness"]
+resolver = "2"

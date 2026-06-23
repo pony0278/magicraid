@@ -1,0 +1,16 @@
+[package]
+name = "magicraid-harness"
+version = "0.0.1"
+edition = "2021"
+description = "魔法基地突襲 — native harness:批次種子跑 baseline agent,驗可解性 / 不崩潰 / 確定性回放。"
+
+[lib]
+name = "harness"
+path = "src/lib.rs"
+
+[[bin]]
+name = "harness"
+path = "src/main.rs"
+
+[dependencies]
+magicraid-sim = { path = "../sim" }
