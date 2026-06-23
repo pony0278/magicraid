@@ -33,6 +33,10 @@ jobs:
           cp target/wasm32-unknown-unknown/release/magicraid_web.wasm web/www/
       - name: WASM boundary smoke (Node)
         run: node web/smoke.mjs
+      - name: JS↔Rust 對拍 (differential, seeds 0..50)
+        run: |
+          cargo build -p magicraid-harness --release
+          node diff/compare.mjs --all 50
       - name: Upload web bundle (artifact)
         uses: actions/upload-artifact@v4
         with:
