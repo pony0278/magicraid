@@ -57,6 +57,8 @@ jobs:
           name: web-www
           path: web/www
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true # 自動啟用 Pages(免去手動 Settings → Pages)
       - uses: actions/upload-pages-artifact@v3
         with:
           path: web/www
