@@ -50,6 +50,7 @@ globalThis.__api = {
   newRun(seed){ loadRoom(0); RUN_SEED=(seed>>>0); acquired.length=0; for(const k in tier)delete tier[k]; potions=CFG.potion.count; },
   loadRoomIdx(idx){ loadRoom(idx); },
   setAcquired(list){ acquired.length=0; for(const id of list) acquired.push(id); },
+  setTiers(map){ for(const k in tier)delete tier[k]; for(const id in map) tier[id]=map[id]; },
   setSel(s){ sel=s; },
   selectAction(a){ selectAction(a); },
   cellClick(x,y){ cellClick(x,y); },

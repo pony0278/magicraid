@@ -412,6 +412,15 @@ fn state_json(g: &GameState, run: &RunState, status: Status) -> String {
         s.push_str(&format!("\"{}\"", sp.id()));
     }
     s.push_str("],");
+    // tiers:每張已撿法術的等級(★★ 改行為,JS 重放要同步;基礎包不可升,不必發)。
+    s.push_str("\"tiers\":{");
+    for (i, sp) in run.acquired.iter().enumerate() {
+        if i > 0 {
+            s.push(',');
+        }
+        s.push_str(&format!("\"{}\":{}", sp.id(), run.tiers.of(sp.id())));
+    }
+    s.push_str("},");
     // 存活實體(依 id 排序 → 與 JS 比對時順序無關)
     let mut ents: Vec<&Entity> = g.entities.iter().filter(|e| e.alive()).collect();
     ents.sort_by_key(|e| e.id);

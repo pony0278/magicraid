@@ -176,7 +176,7 @@ const ROOMS=[
   map:["###########","#.........#","#..#....e.#","#.........#","#.@.....o.#","#....#....#","###########"]},
  {name:"房間 2 · 尖刺場",
   hint:"地上有 <b>▲尖刺</b>。撿到 <b>推</b> 的話,走位把小鬼卡到你和尖刺之間、一推秒殺;沒有的話,拉開距離用魔法彈逐個解決(被貼上會自動停下、改一格一格走)。",
-  map:["##########","#........#","#..s..#...#","#.....#.s.#","#.@.....o.#","#...o.....#","##########"]},
+  map:["##########","#........#","#..s.....#","#.@....o.#","#..s.....#","#.....o..#","##########"]},
  {name:"房間 3 · 油 + 木牆",
   hint:"一灘<b>油</b>、幾道<b>木牆</b>(擋路也擋視線、可當掩體)。撿到<b>火</b>系(火球/烈焰術)能點油燒一片、燒穿木牆拿後面的 <b>⚡急速符文</b>;沒有就用木牆當掩體繞著打。小心 👁 的射線。",
   map:["############","#..........#","#..~~~..e..#","#..~o~.....#","#..~~~.WWW.#","#......W.H.#","#.@..o.....#","############"]},
@@ -252,6 +252,18 @@ function los(ax,ay,bx,by){
   for(let i=1;i<steps;i++){const x=Math.round(ax+dx*i/steps),y=Math.round(ay+dy*i/steps);if(blocksSight(x,y))return false;}
   return true;
 }
+/* 射線上第一個單位(擋在前面的單位替後方中彈=身體當掩體)。整數取格,對齊 sim grid::first_unit_on_ray。 */
+const roundDiv=(num,den)=>Math.trunc((2*num+den)/(2*den));   // == Rust (2*num+den)/(2*den) 整數截斷
+function firstUnitOnRay(ax,ay,bx,by){
+  const dx=bx-ax,dy=by-ay,steps=Math.max(Math.abs(dx),Math.abs(dy));
+  if(steps===0)return null;
+  for(let i=1;i<=steps;i++){
+    const x=roundDiv(ax*steps+dx*i,steps),y=roundDiv(ay*steps+dy*i,steps);
+    const e=entAt(x,y); if(e)return e;
+    if(blocksSight(x,y))return null;
+  }
+  return null;
+}
 
 /* ===== 傷害 / 死亡 ===== */
 function dealDamage(e,amt){
@@ -300,7 +312,7 @@ const SPELLS={
       if(cheb(mage,e)>CFG.bolt.range)return "✋ 超出魔法彈射程("+CFG.bolt.range+" 格)— 先靠近。";
       if(!los(mage.x,mage.y,t.x,t.y))return "✋ 沒有視線,被擋住了 — 換個角度或繞過掩體。";
       return null; },
-    cast:t=>{ log("魔法彈 −"+CFG.bolt.dmg); dealDamage(t.ent,CFG.bolt.dmg); },
+    cast:t=>{ const v=firstUnitOnRay(mage.x,mage.y,t.x,t.y); if(v&&v.kind!=="mage"){log("魔法彈 −"+CFG.bolt.dmg);dealDamage(v,CFG.bolt.dmg);} }, // 攔截:射線第一個單位中彈
     preview:()=>aliveEnemies().filter(e=>cheb(mage,e)<=CFG.bolt.range&&los(mage.x,mage.y,e.x,e.y)).map(e=>({x:e.x,y:e.y})),
     noTarget:"魔法彈:射程內沒有看得到的敵人 — 先靠近,或繞開掩體。" },
 
@@ -596,7 +608,7 @@ function enemyAct(e){
     if(cheb(e,mage)===1){log("小鬼攻擊 −"+CFG.imp.dmg);dealDamage(mage,CFG.imp.dmg);}
     else stepToward(e);
   } else if(e.kind==="eye"){
-    if(cheb(e,mage)<=CFG.eye.range&&los(e.x,e.y,mage.x,mage.y)){log("符文眼射擊 −"+CFG.eye.dmg);dealDamage(mage,CFG.eye.dmg);}
+    if(cheb(e,mage)<=CFG.eye.range&&los(e.x,e.y,mage.x,mage.y)){const v=firstUnitOnRay(e.x,e.y,mage.x,mage.y);if(v){log("符文眼射擊 −"+CFG.eye.dmg);dealDamage(v,CFG.eye.dmg);}} // 攔截:小鬼可替法師擋彈
     else stepToward(e);
   } else if(e.kind==="boss"){
     if(e.exhausted)e.exhausted=false;
