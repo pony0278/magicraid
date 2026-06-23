@@ -58,5 +58,11 @@ sim/src/
 
 ## 當前焦點
 
-階段 B(headless Rust sim)。已起 `state.rs` + `time_chain.rs` 骨架並驗時間鏈確定性;
-接著按 `docs/05-b0-migration.md` A 區逐模組往 damage / terrain / spells 長。
+階段 B(headless Rust sim)。**B0 A 區 + `lib::step` 全契約已 port 完成**:
+`step(state, action) → {events, status}` + `project_chain`,全模組逐字對齊 `prototype/demo1.html`。
+`cargo test` 71 綠(含每模組 determinism 測 + 端到端 step 回放 bit 一致)。
+
+下一步(階段 B 後半,見 `docs/05-b0-migration.md` §B-2/§B-3):
+- harness(native 批次跑種子)+ baseline 參考 agent(每房可解性檢查)。
+- **JS↔Rust 對拍**:同 `(seed, op 序列)` 逐 event 比對抓漂移。
+- 之後接階段 C(wasm-bindgen 包 sim,接輕量 web 殼)。

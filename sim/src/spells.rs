@@ -62,6 +62,15 @@ pub enum Reject {
     TargetIsWall,
     NotFloor,
     OutOfBounds,
+    // ── step 層動作的拒絕原因(非法術 validate,但共用此枚舉) ──
+    /// 沒血瓶 / 血已滿,喝藥無效。
+    CannotDrink,
+    /// 移動目標是牆/有單位/原地。
+    BlockedDestination,
+    /// 找不到到目標的路。
+    NoPath,
+    /// 沒有可釋放的蓄力。
+    NothingToRelease,
 }
 
 /// 法術 id。對應 JS `SPELLS` 的鍵(同時是 `tierOf` 的鍵)。

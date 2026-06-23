@@ -53,6 +53,8 @@ pub struct Entity {
     /// 眩暈剩餘手數(電擊/震退;對應 JS entity.stun)。
     pub stun: u32,
     pub channel: Option<Channel>,
+    /// 法師 auto-walk 剩餘路徑(對應 JS `mage.path`);走到 ZOC 邊緣或被打會清空。
+    pub path: Option<Vec<(i32, i32)>>,
     // boss 專用(對應 JS pendingSlam/exhausted/slam)。
     pub pending_slam: bool,
     pub exhausted: bool,
@@ -96,6 +98,7 @@ impl Entity {
             haste_turns: 0,
             stun: 0,
             channel: None,
+            path: None,
             pending_slam: kind == Kind::Boss,
             exhausted: false,
             slam: None,

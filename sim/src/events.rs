@@ -14,6 +14,7 @@ pub enum Event {
     ChannelInterrupted { id: u32 },
     Stunned { id: u32 },
     HasteGained { id: u32 },
+    Healed { id: u32, amt: i32 },
 }
 
 /// `step()` 回傳的回合狀態(對應 B0 §E 對照表)。
