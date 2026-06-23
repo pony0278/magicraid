@@ -1,0 +1,12 @@
+[package]
+name = "magicraid-sim"
+version = "0.0.1"
+edition = "2021"
+description = "魔法基地突襲 — 確定性 sim 核(headless)。規格 = prototype/demo1.html。"
+
+# 一份實作,native(harness/伺服器)+ WASM(客戶端)共用。
+# WASM bindgen 等綁定之後再加;此 crate 本身保持 no-std-friendly、無外部隨機/時間依賴。
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
