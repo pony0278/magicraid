@@ -1,0 +1,856 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>魔法基地突襲 — Demo 0(速度制)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#221a33;--panel:#2e2545;--panel2:#382c52;
+    --floor:#3b3157;--wall:#15101f;--wood:#5a4326;--oil:#3a4a35;--spike:#4a2f3a;--fire:#ff7a3c;
+    --rune:#3a3a6a;--ink:#efe7d2;--muted:#a99fc4;
+    --cyan:#74e0d4;--gold:#f5c84a;--orange:#ff9a52;--red:#e2574c;--line:#473a66;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Fredoka,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:780px;margin:0 auto;padding:16px 14px 40px}
+  h1{font-size:19px;font-weight:600;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:12.5px;margin:0 0 12px}
+
+  .chainwrap{margin-bottom:10px}
+  .chainlbl{font-size:11px;color:var(--muted);font-family:system-ui;margin-bottom:4px}
+  .chain{display:flex;gap:6px;align-items:center;overflow-x:auto;padding-bottom:2px}
+  .slot{flex:0 0 auto;width:40px;height:40px;border-radius:9px;display:flex;align-items:center;justify-content:center;
+    font-size:19px;position:relative;border:1px solid var(--line);background:var(--panel2)}
+  .slot.mage{border-color:var(--cyan)}
+  .slot.now{box-shadow:0 0 0 2px var(--gold)}
+  .slot .tag{position:absolute;bottom:-3px;left:50%;transform:translateX(-50%);font-size:8px;font-family:system-ui;
+    background:var(--orange);color:#2a1808;border-radius:5px;padding:0 3px;font-weight:600}
+  .arrowx{color:var(--muted);font-size:13px;flex:0 0 auto}
+
+  .hud{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);
+    border-radius:13px;padding:9px 13px;margin-bottom:10px}
+  .room{font-weight:600;font-size:14px}
+  .lbl{font-size:11px;color:var(--muted)}
+  .bar{position:relative;height:14px;width:104px;border-radius:8px;background:#1c1730;overflow:hidden;border:1px solid var(--line)}
+  .bar>i{position:absolute;inset:0;transform-origin:left;transition:transform .25s}
+  .bar.hp>i{background:var(--cyan)}.bar.boss>i{background:var(--red)}
+  .bar>span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;color:#0e0b18;font-weight:600}
+  .tagpill{font-size:11px;font-family:system-ui;border-radius:7px;padding:2px 7px;font-weight:600}
+  .tagpill.haste{background:var(--cyan);color:#08312c}
+  .tagpill.cast{background:var(--orange);color:#2a1808}
+
+  .hint{background:var(--panel2);border:1px dashed var(--line);border-radius:11px;padding:8px 12px;font-size:13px;margin-bottom:10px;min-height:18px}
+  .hint b{color:var(--gold);font-weight:600}
+
+  .boardwrap{overflow:auto;padding:4px 0 8px}
+  .feedback{min-height:17px;font-size:12.5px;color:var(--orange);font-family:system-ui;text-align:center;margin:2px 0 6px;transition:opacity .15s}
+  .boardstage{position:relative;width:max-content;margin:0 auto}
+  .board{display:grid;gap:3px;width:max-content}
+  #sprites{position:absolute;inset:0;pointer-events:none;z-index:5}
+  .sprite{position:absolute;width:42px;height:42px;display:flex;align-items:center;justify-content:center;font-size:23px;
+    transition:left .1s cubic-bezier(.4,0,.25,1),top .1s cubic-bezier(.4,0,.25,1);filter:drop-shadow(0 1px 1px rgba(0,0,0,.5))}
+  .sprite.hit{animation:hit .22s}
+  @keyframes hit{0%{filter:none}30%{filter:brightness(2.2) drop-shadow(0 0 5px var(--red))}100%{filter:none}}
+  .cell.path{box-shadow:inset 0 0 0 2px rgba(116,224,212,.85)}
+  .cell.pathend{box-shadow:inset 0 0 0 2px var(--cyan),0 0 7px rgba(116,224,212,.5)}
+  .cell.pathstop::after{content:"✋";position:absolute;font-size:13px;opacity:.9;z-index:1}
+  .board{display:grid;gap:3px;margin:0 auto;width:max-content}
+  .cell{width:42px;height:42px;border-radius:6px;position:relative;display:flex;align-items:center;justify-content:center;font-size:23px;user-select:none}
+  .t-wall{background:var(--wall);box-shadow:inset 0 0 0 1px #3a3550}
+  .t-floor{background:var(--floor)}
+  .t-oil{background:var(--oil);box-shadow:inset 0 0 0 1px #5a6f4a}
+  .t-spike{background:var(--spike)}
+  .t-spike::after{content:"▲";position:absolute;font-size:12px;color:var(--red);bottom:1px;opacity:.9}
+  .t-wood{background:var(--wood);box-shadow:inset 0 0 0 1px #7a5e38}
+  .t-wood::after{content:"";position:absolute;inset:6px;border-radius:3px;border:1px solid #7a5e38;opacity:.5}
+  .t-woodburn{background:var(--wood);animation:fl .5s infinite alternate}
+  .t-woodburn::after{content:"🔥";position:absolute;font-size:14px}
+  .t-fire{background:var(--fire);animation:fl .5s infinite alternate}
+  .t-rune{background:var(--rune)}
+  .t-rune::after{content:"⚡";position:absolute;font-size:14px;color:var(--cyan)}
+  @keyframes fl{from{filter:brightness(1)}to{filter:brightness(1.25)}}
+
+  .cell.move{cursor:pointer;box-shadow:inset 0 0 0 2px rgba(116,224,212,.55)}
+  .cell.tgt{cursor:pointer;box-shadow:inset 0 0 0 2px var(--gold)}
+  .cell.slam::before{content:"";position:absolute;inset:3px;border-radius:4px;background:rgba(226,87,76,.28);box-shadow:inset 0 0 0 2px var(--red);animation:pl .8s infinite}
+  @keyframes pl{0%,100%{opacity:.55}50%{opacity:1}}
+  .ent{position:relative;z-index:2;filter:drop-shadow(0 1px 1px rgba(0,0,0,.5))}
+  .ehp{position:absolute;left:50%;bottom:-3px;transform:translateX(-50%);font-size:10px;font-weight:600;background:#1c1730;color:var(--ink);padding:0 3px;border-radius:5px;border:1px solid var(--line);z-index:3;font-family:system-ui}
+  .danger{position:absolute;top:-3px;right:-1px;font-size:12px;z-index:4}
+
+  .actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:6px}
+  button.act{font-family:Fredoka;font-weight:500;font-size:13.5px;color:var(--ink);background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 11px;cursor:pointer;display:flex;align-items:center;gap:6px}
+  button.act:hover:not(:disabled){border-color:var(--muted)}
+  button.act:disabled{opacity:.4;cursor:not-allowed}
+  button.act .c{font-size:10px;color:var(--muted);font-family:system-ui}
+  button.act.sel{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
+  button.ghost{background:transparent}
+  .log{margin-top:10px;font-size:12px;color:var(--muted);font-family:system-ui;min-height:48px;line-height:1.55}
+  .legend{font-size:11.5px;color:var(--muted);font-family:system-ui;margin-top:12px;display:flex;gap:12px;flex-wrap:wrap}
+  .legend b{color:var(--ink);font-weight:600;font-family:Fredoka}
+
+  .overlay{position:fixed;inset:0;background:rgba(18,13,30,.82);display:none;align-items:center;justify-content:center;z-index:50;padding:20px}
+  .overlay.on{display:flex}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:24px 26px;text-align:center;max-width:420px}
+  #ovOffers{display:none;flex-direction:column;gap:8px;margin-top:4px}
+  button.offer{display:flex;align-items:center;gap:11px;width:100%;text-align:left;background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:10px 13px;cursor:pointer;font-family:Fredoka;font-weight:400;font-size:13px}
+  button.offer:hover{border-color:var(--gold)}
+  button.offer .oi{font-size:24px;flex:0 0 auto;line-height:1}
+  button.offer .ot{line-height:1.45}
+  button.offer .oe{font-size:11px;color:var(--muted)}
+  button.offer .od{font-size:11.5px;color:var(--muted)}
+  .card h2{margin:0 0 8px;font-size:21px;font-weight:600}
+  .card p{margin:0 0 18px;color:var(--muted);font-size:13.5px;line-height:1.6}
+  .card button{font-family:Fredoka;font-weight:600;font-size:15px;color:#2a2208;background:var(--gold);border:0;border-radius:10px;padding:10px 22px;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>魔法基地突襲 — Demo 0(速度制)</h1>
+  <p class="sub">時間鏈 · 順序鏈 · 視線/掩體 · 石牆木牆 · 可打斷前搖 · 加速插隊</p>
+
+  <div class="chainwrap">
+    <div class="chainlbl">出手順序鏈(時間 →)</div>
+    <div class="chain" id="chain"></div>
+  </div>
+
+  <div class="hud">
+    <span class="room" id="roomName"></span>
+    <span class="lbl">法師</span>
+    <div class="bar hp"><i id="hpFill"></i><span id="hpTxt"></span></div>
+    <span class="lbl" id="bossWrap" style="display:none">魔像</span>
+    <div class="bar boss" id="bossBar" style="display:none"><i id="bossFill"></i><span id="bossTxt"></span></div>
+    <span class="tagpill haste" id="hasteTag" style="display:none"></span>
+    <span class="tagpill cast" id="castTag" style="display:none">蓄力中</span>
+  </div>
+
+  <div class="hint" id="hint"></div>
+  <div class="boardwrap"><div class="boardstage"><div class="board" id="board"></div><div id="sprites"></div></div></div>
+  <div class="feedback" id="feedback"></div>
+
+  <div class="actions" id="actions">
+    <button class="act" data-a="move">🚶 移動</button>
+    <button class="act" data-a="wait">⏳ 待機</button>
+    <button class="act" data-a="potion">🧪 回血瓶 <span class="c" id="potionCount">×2</span></button>
+    <button class="act ghost" data-a="cancel">取消</button>
+  </div>
+
+  <div class="log" id="log"></div>
+  <div class="legend">
+    <span>🧙 法師</span><span>👾 小鬼</span><span>👁 符文眼(遠程)</span><span>🗿 魔像</span>
+    <span><b>▲</b>尖刺</span><span><b style="color:#8fb56a">油</b>可燃</span><span><b style="color:#b08a4a">木</b>可燃·擋視線</span><span><b>⚡</b>急速符文</span>
+  </div>
+</div>
+
+<div class="overlay" id="overlay"><div class="card"><h2 id="ovTitle"></h2><p id="ovText"></p><button id="ovBtn"></button><div id="ovOffers"></div></div></div>
+
+<script>
+"use strict";
+/* ===== 設定(資料驅動) ===== */
+const CFG={
+  mageHp:14,
+  bolt:{dmg:3,range:5},
+  fire:{dmg:3,range:4,dur:2,dot:3},
+  heavy:{dmg:5,range:4},
+  push:{crash:1},
+  spikeDmg:6,
+  imp:{hp:5,dmg:3,speed:1},
+  eye:{hp:4,dmg:2,range:4,speed:1},
+  boss:{hp:24,slam:6,speed:1},
+  hasteGrant:4, hasteSpeed:1.5, baseSpeed:1,
+  hook:{range:4}, oil:{range:3},
+  potion:{count:2, heal:6},   // 回血瓶:一場帶 2 瓶、每瓶回 6;喝藥花一手(數字 playtest 轉)
+  woodBurnTicks:1,
+  /* Demo 1 元素 hook(尚未啟用):火打到濕格是否蒸發回乾地。
+     Demo 1 關閉 = 火/冰碰到一律留濕;之後基地突襲若水/電太無解再翻開。 */
+  fireEvaporatesWet:false
+};
+/* 圖例: # 石牆  W 木  . 地板  ~ 油  s 尖刺  H 急速符文  @ 法師  o 小鬼  e 符文眼  B 魔像 */
+const ROOMS=[
+ {name:"房間 1 · 順序鏈 + 視線",
+  hint:"上方是<b>出手順序鏈</b>:看接下來輪到誰。<b>點遠處</b>可一路走過去;被敵人貼上會自動停下、改一格一格走。魔法彈<b>吃視線</b>——石柱會擋住射線,<b>👁 符文眼</b>也得看到你才能射你,躲到柱子後可斷它的線。",
+  map:["###########","#.........#","#..#....e.#","#.........#","#.@.....o.#","#....#....#","###########"]},
+ {name:"房間 2 · 尖刺場",
+  hint:"地上有 <b>▲尖刺</b>。撿到 <b>推</b> 的話,走位把小鬼卡到你和尖刺之間、一推秒殺;沒有的話,拉開距離用魔法彈逐個解決(被貼上會自動停下、改一格一格走)。",
+  map:["##########","#........#","#..s..#...#","#.....#.s.#","#.@.....o.#","#...o.....#","##########"]},
+ {name:"房間 3 · 油 + 木牆",
+  hint:"一灘<b>油</b>、幾道<b>木牆</b>(擋路也擋視線、可當掩體)。撿到<b>火</b>系(火球/烈焰術)能點油燒一片、燒穿木牆拿後面的 <b>⚡急速符文</b>;沒有就用木牆當掩體繞著打。小心 👁 的射線。",
+  map:["############","#..........#","#..~~~..e..#","#..~o~.....#","#..~~~.WWW.#","#......W.H.#","#.@..o.....#","############"]},
+ {name:"房間 4 · 開闊場(用你撿到的)",
+  hint:"空間大、敵人散開。用<b>剛撿到的法術</b>找節奏——勾索把遠敵拉進 ▲尖刺、加速串一手、推把貼上來的小鬼推開或推上尖刺。",
+  map:["###########","#....s....#","#.o.....e.#","#....@....#","#.o.......#","#....s....#","###########"]},
+ {name:"房間 5 · 油陣",
+  hint:"一大灘<b>油</b>。撿到<b>火球</b>就點一處沿油燒一片、把敵人逼進去;沒有的話把敵人逐個引出來用魔法彈處理。",
+  map:["############","#..~~~.....#","#..~o~..e..#","#..~~~.....#","#.@.....o..#","#......s...#","############"]},
+ {name:"關主 · 符文魔像",
+  hint:"魔像<b>推不動</b>、砸擊<b>不可打斷</b>。看<b style='color:#e2574c'>紅格</b>→走出去→它砸完<b>過熱一手、受雙倍傷害</b>,趁那窗口集中爆發(踩 <b>⚡</b> 加速能多打一手)。撿到火系的話,過熱時點腳下的油更爽。",
+  map:["###########","#.........#","#...~~~...#","#...~B~...#","#...~~~...#","#.........#","#.H.......#","#....@....#","###########"]}
+];
+
+/* ===== 狀態 ===== */
+let G=null, mage=null, sel=null, waiting=false, logLines=[], mageHurt=false, spriteMap={}, hover=null, feedback="";
+let acquired=[]; const SPELL_CAP=3;
+let potions=0;   // 回血瓶剩餘數(每場開局重置為 CFG.potion.count)
+let tier={};     // 每個已撿法術的等級(1=基礎,2=★★);tierOf 讀取,升級不占槽
+const tierOf=id=>tier[id]||1;
+/* Demo 1 確定性接口:RUN_SEED 決定整場的三選一(回放只要存這顆種子就能重現);
+   opLog 依序記錄玩家操作(目前先記「選牌」,Demo 3 再把戰鬥操作也接進來)。 */
+let RUN_SEED=0, opLog=[];
+const ELNAME={fire:"火",water:"水",electric:"電",earth:"土",neutral:"中性",physical:"物理"};
+const $=id=>document.getElementById(id);
+
+function loadRoom(idx){
+  const rows=ROOMS[idx].map, h=rows.length, w=rows[0].length;
+  const tiles=[],fire=[],burnT=[],ents=[]; let id=1;
+  for(let y=0;y<h;y++){tiles.push([]);fire.push([]);burnT.push([]);
+    for(let x=0;x<w;x++){
+      const c=rows[y][x]; let t="floor";
+      if(c==="#")t="wall";else if(c==="W")t="wood";else if(c==="~")t="oil";
+      else if(c==="s")t="spike";else if(c==="H")t="rune";
+      tiles[y].push(t);fire[y].push(0);burnT[y].push(0);
+      if(c==="@")ents.push({id:0,kind:"mage",x,y,hp:CFG.mageHp,maxhp:CFG.mageHp,speed:1,time:0,hasteTurns:0,channel:null});
+      else if(c==="o")ents.push({id:id++,kind:"imp",x,y,hp:CFG.imp.hp,maxhp:CFG.imp.hp,speed:1,time:0});
+      else if(c==="e")ents.push({id:id++,kind:"eye",x,y,hp:CFG.eye.hp,maxhp:CFG.eye.hp,speed:1,time:0});
+      else if(c==="B")ents.push({id:id++,kind:"boss",x,y,hp:CFG.boss.hp,maxhp:CFG.boss.hp,speed:1,time:0,pendingSlam:true,exhausted:false,slam:null});
+    }
+  }
+  G={w,h,tiles,fire,burnT,entities:ents,roomIdx:idx};
+  mage=ents.find(e=>e.kind==="mage");
+  const boss=ents.find(e=>e.kind==="boss");
+  if(boss)boss.slam=slamArea(mage.x,mage.y);
+  sel=null;logLines=[];hover=null;feedback="";
+  if(animTimer)clearTimeout(animTimer);anim=false;frames=[];pendingHits.length=0;wantOverlay=false;
+  spriteMap={};const spr=$("sprites");if(spr)spr.innerHTML="";
+  $("roomName").textContent=ROOMS[idx].name;
+  $("hint").innerHTML=ROOMS[idx].hint;
+  if(idx===0){ acquired=[]; tier={}; potions=CFG.potion.count; RUN_SEED=(Date.now()^(Math.random()*1e9))>>>0; opLog=[]; } // 新的一場 → 重洗 build/升級 + 補滿回血瓶 + 抽新種子
+  $("bossWrap").style.display=boss?"":"none";$("bossBar").style.display=boss?"":"none";
+  buildSpellButtons();                  // 動作列 = 基礎包 + 已撿取
+  log(idx===0?"新的一場開始。":"進入 "+ROOMS[idx].name+"。");
+  waiting=true; render();
+}
+
+/* ===== 工具 ===== */
+const inB=(x,y)=>x>=0&&y>=0&&x<G.w&&y<G.h;
+const cheb=(a,b)=>Math.max(Math.abs(a.x-b.x),Math.abs(a.y-b.y));
+const entAt=(x,y)=>G.entities.find(e=>e.hp>0&&e.x===x&&e.y===y);
+const blocksMove=(x,y)=>{const t=G.tiles[y][x];return t==="wall"||t==="wood"||t==="woodburn";};
+const blocksSight=(x,y)=>{const t=G.tiles[y][x];return t==="wall"||t==="wood"||t==="woodburn";};
+const walkable=(x,y)=>inB(x,y)&&!blocksMove(x,y);
+const aliveEnemies=()=>G.entities.filter(e=>e.hp>0&&e.kind!=="mage");
+const effSpeed=e=>(e.kind==="mage"&&e.hasteTurns>0)?CFG.hasteSpeed:e.speed;
+
+function slamArea(cx,cy){const a=[];for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const x=cx+dx,y=cy+dy;if(inB(x,y)&&G.tiles[y][x]!=="wall")a.push({x,y});}return a;}
+
+function los(ax,ay,bx,by){
+  const dx=bx-ax,dy=by-ay,steps=Math.max(Math.abs(dx),Math.abs(dy));
+  if(steps===0)return true;
+  for(let i=1;i<steps;i++){const x=Math.round(ax+dx*i/steps),y=Math.round(ay+dy*i/steps);if(blocksSight(x,y))return false;}
+  return true;
+}
+
+/* ===== 傷害 / 死亡 ===== */
+function dealDamage(e,amt){
+  pendingHits.push(e.id);
+  if(e.kind==="boss"&&e.exhausted)amt*=2;
+  if(e===mage&&mage.channel){mage.channel.interrupted=true;}
+  if(e===mage)mageHurt=true;
+  e.hp-=amt;
+  if(e.hp<=0){e.hp=0;
+    if(e.kind==="mage")return;
+    log("✨ "+(e.kind==="boss"?"魔像被解除!":"被解除。"));
+    if(mage.hasteTurns>0&&tierOf("haste")>=2){ mage.hasteTurns++; log("⚡ 加速續一手(擊殺)!"); } // 加速★★:擊殺滾雪球
+  }
+}
+
+/* ===== 火 ===== */
+function igniteOil(sx,sy){
+  const seen={},st=[{x:sx,y:sy}];
+  while(st.length){const c=st.pop(),k=c.x+","+c.y;if(seen[k])continue;seen[k]=1;
+    if(!inB(c.x,c.y)||G.tiles[c.y][c.x]!=="oil")continue;
+    G.fire[c.y][c.x]=CFG.fire.dur;const e=entAt(c.x,c.y);if(e&&e.kind!=="mage")dealDamage(e,CFG.fire.dot);
+    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)if(dx||dy)st.push({x:c.x+dx,y:c.y+dy});}
+}
+function fireTick(){
+  for(let y=0;y<G.h;y++)for(let x=0;x<G.w;x++)
+    if(G.tiles[y][x]==="woodburn"){G.burnT[y][x]--;if(G.burnT[y][x]<=0){G.tiles[y][x]="floor";G.fire[y][x]=CFG.fire.dur;}}
+  const active=[];for(let y=0;y<G.h;y++)for(let x=0;x<G.w;x++)if(G.fire[y][x]>0)active.push({x,y});
+  for(const f of active){
+    const e=entAt(f.x,f.y);if(e)dealDamage(e,CFG.fire.dot);
+    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){if(!dx&&!dy)continue;const x=f.x+dx,y=f.y+dy;if(!inB(x,y))continue;
+      if(G.tiles[y][x]==="oil"&&G.fire[y][x]===0)G.fire[y][x]=CFG.fire.dur;
+      else if(G.tiles[y][x]==="wood"){G.tiles[y][x]="woodburn";G.burnT[y][x]=CFG.woodBurnTicks;}}
+  }
+  for(let y=0;y<G.h;y++)for(let x=0;x<G.w;x++)if(G.fire[y][x]>0){G.fire[y][x]--;if(G.fire[y][x]===0&&G.tiles[y][x]==="oil")G.tiles[y][x]="floor";}
+}
+
+/* ===== 法術 registry(資料驅動;新增一招 = 加一筆,不動引擎) =====
+   每筆:icon/name/cost 顯示;element Demo1 元素標籤(目前純 metadata,不影響結算);
+   target 瞄準型別(metadata);channel 是否前搖兩手;
+   validate(t)→null 或錯誤字串;cast(t)/initiate(t)→效果;preview()→可瞄準格陣列;noTarget→無目標提示。
+   t = {x,y,ent}。基礎包 baseline:true(Demo1 不算進欄位上限)。 */
+const SPELLS={
+  bolt:{ icon:"✨", name:"魔法彈", cost:"3傷·吃視線", element:"neutral", baseline:true, target:"enemy",
+    validate:t=>{ const e=t.ent;
+      if(!e||e.kind==="mage")return "✋ 那裡沒有敵人 — 魔法彈要瞄準敵人。";
+      if(cheb(mage,e)>CFG.bolt.range)return "✋ 超出魔法彈射程("+CFG.bolt.range+" 格)— 先靠近。";
+      if(!los(mage.x,mage.y,t.x,t.y))return "✋ 沒有視線,被擋住了 — 換個角度或繞過掩體。";
+      return null; },
+    cast:t=>{ log("魔法彈 −"+CFG.bolt.dmg); dealDamage(t.ent,CFG.bolt.dmg); },
+    preview:()=>aliveEnemies().filter(e=>cheb(mage,e)<=CFG.bolt.range&&los(mage.x,mage.y,e.x,e.y)).map(e=>({x:e.x,y:e.y})),
+    noTarget:"魔法彈:射程內沒有看得到的敵人 — 先靠近,或繞開掩體。" },
+
+  push:{ icon:"👐", name:"推", cost:"1格", element:"physical", baseline:false, target:"adjEnemy",
+    desc:"把相鄰敵人推開一格 — 推上尖刺/火裡秒殺,或解圍。",
+    maxTier:2, up:"撞牆/撞敵 → 對方暈一手(跳過行動)。",
+    validate:t=>{ const e=t.ent;
+      if(!e||e.kind==="mage")return "✋ 那裡沒有敵人。";
+      if(cheb(mage,e)!==1)return "✋ 推只能推<b>相鄰</b>的敵人 — 先走到它旁邊。";
+      return null; },
+    cast:t=>{ doPush(t.ent); },
+    preview:()=>aliveEnemies().filter(e=>cheb(mage,e)===1).map(e=>({x:e.x,y:e.y})),
+    noTarget:"推:身邊沒有相鄰的敵人 — 先走到敵人旁邊。" },
+
+  fire:{ icon:"🔥", name:"火球", cost:"點油", element:"fire", baseline:false, target:"cell",
+    desc:"丟出火球,點燃油沿油燒一片。基礎的火來源。",
+    maxTier:2, up:"命中格留一格火(沒油也能造火區)。",
+    validate:t=>{
+      if(!inB(t.x,t.y)||cheb(mage,t)>CFG.fire.range)return "✋ 超出火球射程("+CFG.fire.range+" 格)。";
+      if(!los(mage.x,mage.y,t.x,t.y))return "✋ 沒有視線,丟不過去。";
+      if(blocksMove(t.x,t.y))return "✋ 那是牆,不能丟在牆上。";
+      return null; },
+    cast:t=>{
+      const e=entAt(t.x,t.y); if(e&&e.kind!=="mage"){ log("火球 −"+CFG.fire.dmg); dealDamage(e,CFG.fire.dmg); }
+      if(G.tiles[t.y][t.x]==="oil"){ log("油被點燃!"); igniteOil(t.x,t.y); }
+      else if(tierOf("fire")>=2 && !blocksMove(t.x,t.y)){ G.fire[t.y][t.x]=CFG.fire.dur; log("🔥 火球在地上留下火。"); } },
+    preview:()=>{ const out=[]; for(let y=0;y<G.h;y++)for(let x=0;x<G.w;x++){
+      if(cheb(mage,{x,y})<=CFG.fire.range&&los(mage.x,mage.y,x,y)&&G.tiles[y][x]!=="wall"){
+        const ee=entAt(x,y); if(G.tiles[y][x]==="oil"||(ee&&ee.kind!=="mage"))out.push({x,y}); } } return out; },
+    noTarget:"火球:射程內沒有可燒的目標(敵人或油)。" },
+
+  heavy:{ icon:"☄", name:"烈焰術", cost:"前搖·燒木", element:"fire", baseline:false, channel:true, target:"cell",
+    desc:"前搖兩格、加號範圍爆發、能燒木牆。賭撐過前搖再轟。",
+    maxTier:2, up:"爆炸把命中的敵人往外震開一格。",
+    validate:t=>{
+      if(!inB(t.x,t.y)||cheb(mage,t)>CFG.heavy.range)return "✋ 超出烈焰術射程("+CFG.heavy.range+" 格)。";
+      if(!los(mage.x,mage.y,t.x,t.y))return "✋ 沒有視線。";
+      if(G.tiles[t.y][t.x]==="wall")return "✋ 不能瞄準石牆。";
+      return null; },
+    initiate:t=>{ mage.channel={x:t.x,y:t.y,interrupted:false}; log("☄ 開始蓄力烈焰術…(下一手釋放,期間不能移動、會被打斷)"); },
+    preview:()=>{ const out=[]; for(let y=0;y<G.h;y++)for(let x=0;x<G.w;x++){
+      if(cheb(mage,{x,y})<=CFG.heavy.range&&los(mage.x,mage.y,x,y)&&G.tiles[y][x]!=="wall")out.push({x,y}); } return out; },
+    noTarget:"烈焰術:射程內沒有目標 — 先靠近。" },
+
+  /* ===== Demo 1 撿取池(baseline:false;只能靠清關後三選一取得) =====
+     刻意只用「現有引擎就跑得動」的招(火/物理/中性),不依賴尚未啟用的元素機制。
+     水/電/土(冰霜/連鎖閃電/築牆)等元素機制接上後再進池。 */
+  oilflask:{ icon:"🛢️", name:"澆油", cost:"造油", element:"neutral", baseline:false, target:"cell",
+    desc:"在空地板上潑一灘油,之後用火點燃。自己造戰場。",
+    maxTier:2, up:"改潑一條 3 格油線(造一道燃料牆)。",
+    validate:t=>{
+      if(!inB(t.x,t.y)||cheb(mage,t)>CFG.oil.range)return "✋ 超出澆油射程("+CFG.oil.range+" 格)。";
+      if(!los(mage.x,mage.y,t.x,t.y))return "✋ 沒有視線。";
+      if(G.tiles[t.y][t.x]!=="floor")return "✋ 只能潑在空地板上。";
+      return null; },
+    cast:t=>{ const paint=(x,y)=>{ if(inB(x,y)&&G.tiles[y][x]==="floor")G.tiles[y][x]="oil"; };
+      paint(t.x,t.y);
+      if(tierOf("oilflask")>=2){ const dx=Math.sign(t.x-mage.x),dy=Math.sign(t.y-mage.y); paint(t.x+dx,t.y+dy); paint(t.x+2*dx,t.y+2*dy); log("潑出一條油線。"); }
+      else log("潑了一灘油。"); },
+    preview:()=>{ const o=[]; for(let y=0;y<G.h;y++)for(let x=0;x<G.w;x++)
+      if(G.tiles[y][x]==="floor"&&cheb(mage,{x,y})<=CFG.oil.range&&los(mage.x,mage.y,x,y))o.push({x,y}); return o; },
+    noTarget:"澆油:射程內沒有可潑的空地。" },
+
+  hook:{ icon:"🪝", name:"勾索", cost:"拉近", element:"physical", baseline:false, target:"enemy",
+    desc:"把遠處敵人拉近兩格 — 勾進尖刺或火裡。",
+    maxTier:2, up:"勾中的敵人落點定身一手。",
+    validate:t=>{ const e=t.ent;
+      if(!e||e.kind==="mage")return "✋ 那裡沒有敵人。";
+      if(cheb(mage,e)>CFG.hook.range)return "✋ 超出勾索射程("+CFG.hook.range+" 格)。";
+      if(cheb(mage,e)===1)return "✋ 它已經貼著你了,不用勾。";
+      if(!los(mage.x,mage.y,e.x,e.y))return "✋ 沒有視線。";
+      return null; },
+    cast:t=>{ doPull(t.ent); },
+    preview:()=>aliveEnemies().filter(e=>cheb(mage,e)>1&&cheb(mage,e)<=CFG.hook.range&&los(mage.x,mage.y,e.x,e.y)).map(e=>({x:e.x,y:e.y})),
+    noTarget:"勾索:射程內沒有可勾的敵人。" },
+
+  /* 震退已移除:與「推」機制重疊(都把相鄰敵人推開)。之後做機制升級時,
+     它可回來當「推」的二階範圍版(一次推開相鄰一圈)。 */
+
+  haste:{ icon:"⚡", name:"加速術", cost:"自插隊", element:"neutral", baseline:false, target:"self",
+    desc:"自身加速幾手 — 串出額外一手做連招。",
+    maxTier:2, up:"加速期間擊殺 → 再續一手加速(滾雪球)。",
+    validate:()=>null,
+    cast:()=>{ mage.hasteTurns=CFG.hasteGrant; log("⚡ 加速!接下來幾手會插隊。"); } }
+};
+/* 動作列上的「基礎包」顯示順序。撿取的法術接在後面(見 buildSpellButtons / acquired)。 */
+const SPELL_ORDER=["bolt"];
+
+/* ===== Demo 1 元素資料模型(接口預留,尚未啟用) =====
+   • 濕/冰合一:同一種 tile "wet"(站上去減速 + 滅火 + 導電給電鋪路),不另立「冰格」詞彙。
+   • 火 × 濕同格:Demo 1 一律 → wet(冰澆火留濕、火碰濕也留濕);
+     CFG.fireEvaporatesWet=true 時改為火把濕蒸發回乾地(留待基地突襲再翻開)。
+   • 濕格擋火蔓延:啟用 wet 後,fireTick 蔓延撞到 wet 即止(免費防火帶)。
+   啟用時:loadRoom 的字元映射加一個 wet 符號、render 加 .t-wet、fireTick 補上述兩條規則。 */
+
+/* 確定性鏈跳候選排序(連鎖閃電的接口):回放必須一致,所以候選一律「顯式排序」,
+   絕不靠 Set/陣列/entAt 的迭代順序。排序鍵:固定方向掃描序 → entity id;hitSet 防跳回。 */
+const CHAIN_SCAN=[[0,-1],[1,-1],[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1]]; // N,NE,E,SE,S,SW,W,NW
+function chainCandidates(fromX,fromY,hitSet){
+  const out=[];
+  for(const d of CHAIN_SCAN){ const x=fromX+d[0],y=fromY+d[1]; if(!inB(x,y))continue;
+    const e=entAt(x,y); if(e&&e.kind!=="mage"&&!hitSet.has(e.id))out.push(e); }
+  return out.sort((a,b)=>a.id-b.id);
+}
+
+/* ===== 玩家動作 ===== */
+function selectAction(a){if(anim){skipAnim();return;}feedback="";if(a==="cancel"){if(mage.channel&&mage.channel.ready)return;sel=null;hover=null;render();return;}if(!waiting)return;if(mage.channel&&mage.channel.ready){turn(releaseHeavy);return;}if(a==="wait"){turn(()=>{sel=null;log("待機。");endMageAction();});return;}if(a==="potion"){if(potions<=0){feedback="沒有回血瓶了。";render();return;}if(mage.hp>=mage.maxhp){feedback="血量已滿,留著吧。";render();return;}turn(()=>{sel=null;potions--;const b=mage.hp;mage.hp=Math.min(mage.maxhp,mage.hp+CFG.potion.heal);log("🧪 喝下回血瓶 +"+(mage.hp-b)+"(這一手敵人會動)");snap();endMageAction();});return;}if(SPELLS[a]&&SPELLS[a].target==="self"){const sp=SPELLS[a];const err=sp.validate?sp.validate():null;if(err){sel=null;feedback=err;render();return;}turn(()=>{sp.cast();snap();endMageAction();});return;}sel=sel===a?null:a;hover=null;render();}
+
+function cellClick(x,y){
+  if(anim){skipAnim();return;}
+  if(!waiting)return;
+  hover=null;
+  if(mage.channel&&mage.channel.ready){turn(releaseHeavy);return;}
+  if(!sel)return;
+  if(sel==="move"){
+    if(!inB(x,y)||!walkable(x,y)||entAt(x,y)||(x===mage.x&&y===mage.y))return;
+    const path=findPath(mage.x,mage.y,x,y);
+    if(!path||!path.length)return;
+    const next=path[0];
+    turn(()=>{
+      mageHurt=false;
+      mage.path=(path.length>1&&!walkBrake(next))?path.slice(1):null; /* 多格且第一步不進控制區 → 自動連走;否則只走一步 */
+      moveMageTo(next.x,next.y);snap();
+      sel=null;endMageAction();
+    });
+  } else if(SPELLS[sel]){
+    const sp=SPELLS[sel], t={x,y,ent:entAt(x,y)};
+    const err=sp.validate(t);
+    if(err){feedback=err;render();return;}
+    if(sp.channel){ turn(()=>{ sp.initiate(t); endMageAction(); }); }     // 前搖:設 channel,不在此結算
+    else { turn(()=>{ sp.cast(t); snap(); endMageAction(); }); }          // 一般:立即結算
+  }
+}
+function doPush(e){
+  if(e.kind==="boss"){log("魔像太重,推不動。");return;}
+  const dx=Math.sign(e.x-mage.x),dy=Math.sign(e.y-mage.y),nx=e.x+dx,ny=e.y+dy;
+  if(!walkable(nx,ny)||entAt(nx,ny)){log("撞上阻擋,停住 −"+CFG.push.crash);dealDamage(e,CFG.push.crash);
+    if(tierOf("push")>=2&&e.hp>0){e.stun=1;log("→ 撞暈,跳過一手!");} return;} // 推★★:撞擊→暈一手
+  e.x=nx;e.y=ny;log("推開了。");snap();
+  if(G.tiles[ny][nx]==="spike"){log("→ 撞上尖刺 −"+CFG.spikeDmg);dealDamage(e,CFG.spikeDmg);}
+  else if(G.fire[ny][nx]>0){log("→ 推進火裡 −"+CFG.fire.dot);dealDamage(e,CFG.fire.dot);}
+}
+/* 把單位往指定方向震一格(撞阻擋則停;落點是尖刺/火則受傷)。供烈焰術★★ 震退用。 */
+function shoveDir(e,dx,dy){
+  if(!dx&&!dy)return;
+  const nx=e.x+dx,ny=e.y+dy;
+  if(!walkable(nx,ny)||entAt(nx,ny))return;
+  e.x=nx;e.y=ny;snap();
+  if(G.tiles[ny][nx]==="spike"){log("→ 震上尖刺 −"+CFG.spikeDmg);dealDamage(e,CFG.spikeDmg);}
+  else if(G.fire[ny][nx]>0){log("→ 震進火裡 −"+CFG.fire.dot);dealDamage(e,CFG.fire.dot);}
+}
+function doPull(e){
+  if(e.kind==="boss"){log("魔像太重,拉不動。");return;}
+  for(let s=0;s<2;s++){
+    const dx=Math.sign(mage.x-e.x),dy=Math.sign(mage.y-e.y),nx=e.x+dx,ny=e.y+dy;
+    if(nx===mage.x&&ny===mage.y)break;            // 不能拉到法師身上
+    if(!walkable(nx,ny)||entAt(nx,ny))break;       // 撞阻擋停住
+    e.x=nx;e.y=ny;snap();
+    if(G.tiles[ny][nx]==="spike"){log("→ 勾上尖刺 −"+CFG.spikeDmg);dealDamage(e,CFG.spikeDmg);break;}
+    if(G.fire[ny][nx]>0){log("→ 勾進火裡 −"+CFG.fire.dot);dealDamage(e,CFG.fire.dot);break;}
+  }
+  log("勾索拉近。");
+  if(tierOf("hook")>=2&&e.hp>0){e.stun=1;log("→ 勾住,定身一手!");} // 勾索★★:落點定身
+}
+
+/* ===== 移動:單格落地效果 ===== */
+function moveMageTo(x,y){
+  mage.x=x;mage.y=y;
+  if(G.tiles[y][x]==="spike"){log("踩到尖刺 −"+CFG.spikeDmg);dealDamage(mage,CFG.spikeDmg);}
+  if(G.fire[y][x]>0){log("踩進火裡 −"+CFG.fire.dot);dealDamage(mage,CFG.fire.dot);}
+  if(G.tiles[y][x]==="rune"){G.tiles[y][x]="floor";mage.hasteTurns=CFG.hasteGrant;log("⚡ 獲得急速!接下來幾手會插隊。");}
+}
+/* ===== ZOC:何時該停下自動連走、把控制權交回玩家 ===== */
+function walkBrake(nextTile){
+  if(mageHurt)return true;                                       // 這趟走路被打到 → 停
+  if(aliveEnemies().some(e=>cheb(e,mage)===1))return true;       // 已被敵人貼住(控制區內)→ 停
+  if(nextTile&&aliveEnemies().some(e=>cheb(e,nextTile)===1))return true; // 下一步會踏進控制區 → 停在邊緣
+  return false;
+}
+/* ===== A* 尋路(8 向,對角線成本 1.4 → 走直線、不繞鋸齒;穿不過牆/敵人;繞開尖刺與火,終點除外) ===== */
+function findPath(sx,sy,tx,ty){
+  if(sx===tx&&sy===ty)return null;
+  const key=(x,y)=>x+","+y, H=(x,y)=>Math.max(Math.abs(x-tx),Math.abs(y-ty));
+  const open=[{x:sx,y:sy,g:0,f:H(sx,sy)}], g={}, prev={}, closed={}; g[key(sx,sy)]=0;
+  while(open.length){
+    let bi=0;for(let i=1;i<open.length;i++){const o=open[i],b=open[bi];if(o.f<b.f||(o.f===b.f&&o.g>b.g))bi=i;}
+    const c=open.splice(bi,1)[0], ck=key(c.x,c.y);
+    if(closed[ck])continue;closed[ck]=1;
+    if(c.x===tx&&c.y===ty){const path=[];let k=ck;while(k!==key(sx,sy)){const p=k.split(",");path.push({x:+p[0],y:+p[1]});k=prev[k];}return path.reverse();}
+    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+      if(!dx&&!dy)continue;
+      const x=c.x+dx,y=c.y+dy;if(!inB(x,y))continue;
+      const kk=key(x,y);if(closed[kk]||!walkable(x,y))continue;
+      const isDest=(x===tx&&y===ty);
+      if(entAt(x,y)&&!isDest)continue;
+      if((G.tiles[y][x]==="spike"||G.fire[y][x]>0)&&!isDest)continue;
+      const ng=c.g+((dx&&dy)?1.4:1.0);
+      if(g[kk]===undefined||ng<g[kk]-1e-9){g[kk]=ng;prev[kk]=ck;open.push({x,y,g:ng,f:ng+H(x,y)});}
+    }
+  }
+  return null;
+}
+function heavyArea(cx,cy){const a=[];for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){if(Math.abs(dx)+Math.abs(dy)>1)continue;const x=cx+dx,y=cy+dy;if(inB(x,y))a.push({x,y});}return a;}
+function resolveHeavy(ch){
+  log("☄ 烈焰術轟下!");
+  const hit=[];
+  for(const t of heavyArea(ch.x,ch.y)){
+    const x=t.x,y=t.y;
+    const e=entAt(x,y);if(e&&e.kind!=="mage"){dealDamage(e,CFG.heavy.dmg);if(e.hp>0)hit.push(e);}
+    const tt=G.tiles[y][x];
+    if(tt==="oil")G.fire[y][x]=CFG.fire.dur;
+    else if(tt==="wood"){G.tiles[y][x]="woodburn";G.burnT[y][x]=CFG.woodBurnTicks;log("木牆被點燃!");}
+    else if(tt==="floor"||tt==="spike")G.fire[y][x]=CFG.fire.dur;
+  }
+  if(tierOf("heavy")>=2){ // 烈焰術★★:把命中的敵人往外震開一格(中心格的不震)
+    for(const e of hit){ if(e.hp>0&&e.kind!=="boss")shoveDir(e,Math.sign(e.x-ch.x),Math.sign(e.y-ch.y)); }
+  }
+}
+function releaseHeavy(){
+  if(!mage.channel||!mage.channel.ready)return;
+  const ch=mage.channel;mage.channel=null;
+  resolveHeavy(ch);snap();
+  mage.time+=1/effSpeed(mage);if(mage.hasteTurns>0)mage.hasteTurns--;
+  waiting=false;sel=null;
+  if(mage.hp<=0)return defeat();
+  if(checkClear())return;
+  advance();
+}
+
+function endMageAction(){
+  mage.time+=1/effSpeed(mage);
+  if(mage.hasteTurns>0)mage.hasteTurns--;
+  waiting=false;sel=null;
+  if(mage.hp<=0)return defeat();
+  if(checkClear())return;
+  advance();
+}
+
+/* ===== 時間鏈推進 ===== */
+function nextActor(){
+  const live=G.entities.filter(e=>e.hp>0);
+  live.sort((a,b)=>a.time-b.time||(a.kind==="mage"?-1:b.kind==="mage"?1:a.id-b.id));
+  return live[0];
+}
+function advance(){
+  let guard=0;
+  while(guard++<2000){
+    const a=nextActor();
+    if(a.kind==="mage"){
+      curActor=0;
+      fireTick();
+      if(mage.hp<=0)return defeat();
+      if(checkClear())return;
+      if(mage.channel&&mage.channel.interrupted){mage.channel=null;log("⚡ 施法被打斷,法術沒放出來。");}
+      else if(mage.channel){ /* 前搖撐過了:停在釋放手,讓玩家看見紅格預告與空檔結果,再確認轟下 */
+        mage.channel.ready=true;waiting=true;render();return;
+      }
+      if(mage.path&&mage.path.length){
+        const next=mage.path[0];
+        if(walkBrake(next)||!walkable(next.x,next.y)||entAt(next.x,next.y)){mage.path=null;}
+        else{
+          mage.path.shift();moveMageTo(next.x,next.y);
+          mage.time+=1/effSpeed(mage);if(mage.hasteTurns>0)mage.hasteTurns--;
+          snap();
+          if(mage.hp<=0)return defeat();
+          if(checkClear())return;
+          continue;
+        }
+      }
+      waiting=true;render();return;
+    } else {
+      curActor=a.id;
+      enemyAct(a);
+      a.time+=1/effSpeed(a);
+      snap();
+      if(mage.hp<=0)return defeat();
+    }
+  }
+}
+
+/* ===== 敵人 AI(確定性) ===== */
+function stepToward(e){
+  let best=null,bd=cheb(e,mage);
+  for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){if(!dx&&!dy)continue;
+    const x=e.x+dx,y=e.y+dy;if(!walkable(x,y)||entAt(x,y))continue;
+    if(G.tiles[y][x]==="spike"||G.fire[y][x]>0)continue;
+    const d=cheb({x,y},mage);if(d<bd){bd=d;best={x,y};}}
+  if(best){e.x=best.x;e.y=best.y;}
+}
+function enemyAct(e){
+  if(e.stun>0){ e.stun--; log((e.kind==="eye"?"符文眼":"小鬼")+"被震暈,跳過一手。"); return; }
+  if(e.kind==="imp"){
+    if(cheb(e,mage)===1){log("小鬼攻擊 −"+CFG.imp.dmg);dealDamage(mage,CFG.imp.dmg);}
+    else stepToward(e);
+  } else if(e.kind==="eye"){
+    if(cheb(e,mage)<=CFG.eye.range&&los(e.x,e.y,mage.x,mage.y)){log("符文眼射擊 −"+CFG.eye.dmg);dealDamage(mage,CFG.eye.dmg);}
+    else stepToward(e);
+  } else if(e.kind==="boss"){
+    if(e.exhausted)e.exhausted=false;
+    if(e.pendingSlam){
+      let hit=false;for(const t of e.slam)if(mage.x===t.x&&mage.y===t.y)hit=true;
+      if(hit){log("魔像砸下! −"+CFG.boss.slam);dealDamage(mage,CFG.boss.slam);}else log("魔像砸空了。");
+      e.slam=null;e.pendingSlam=false;e.exhausted=true;
+    } else {e.slam=slamArea(mage.x,mage.y);e.pendingSlam=true;log("魔像舉拳…(紅格警告)");}
+  }
+}
+
+/* ===== 順序鏈投影 ===== */
+function projectChain(n){
+  const sim=G.entities.filter(e=>e.hp>0).map(e=>({kind:e.kind,time:e.time,speed:effSpeed(e),haste:e.kind==="mage"?e.hasteTurns:0,channel:e.kind==="mage"&&!!e.channel,id:e.id}));
+  const out=[];let firstMage=true;
+  for(let i=0;i<n;i++){
+    sim.sort((a,b)=>a.time-b.time||(a.kind==="mage"?-1:b.kind==="mage"?1:a.id-b.id));
+    const a=sim[0];let tag=null;
+    if(a.kind==="mage"&&a.channel&&firstMage){tag="釋放";firstMage=false;}
+    out.push({kind:a.kind,tag});
+    a.time+=1/a.speed;
+    if(a.kind==="mage"&&a.haste>0){a.haste--;a.speed=a.haste>0?CFG.hasteSpeed:CFG.baseSpeed;}
+  }
+  return out;
+}
+
+/* ===== 逐格播放引擎(模擬同步跑完→錄每手快照→排隊播放;純視覺,不碰決定論) ===== */
+let frames=[], pendingHits=[], anim=false, animTimer=null, simRunning=false, wantOverlay=false, curActor=0;
+const STEP_MS=125;
+function snap(){
+  const pos={};
+  G.entities.forEach(e=>{if(e.hp>0)pos[e.id]={x:e.x,y:e.y};});
+  frames.push({pos,flash:pendingHits.slice(),actor:curActor,chain:projectChain(8)});pendingHits.length=0; // actor=這手誰行動;chain=當下後續順序
+}
+function turn(fn){ feedback="";frames=[];pendingHits.length=0;curActor=0;simRunning=true;try{fn();}finally{simRunning=false;} present(); } // 玩家發起的這手 = 法師
+function applyFrame(f){
+  for(const id in f.pos){const el=spriteMap[id];if(el){el.style.left=(f.pos[id].x*45)+"px";el.style.top=(f.pos[id].y*45)+"px";}}
+  f.flash.forEach(id=>{const el=spriteMap[id];if(el){el.classList.remove("hit");void el.offsetWidth;el.classList.add("hit");}});
+  if(f.chain){ // 把「正在行動的這手」放在鏈頭(now),後面接當下後續順序 → 高亮格隨播放走過每個單位
+    const ae=G.entities.find(e=>e.id===f.actor)||{kind:"mage"};
+    paintChain([{kind:ae.kind,now:true}].concat(f.chain.map(s=>({kind:s.kind,tag:s.tag,now:false}))));
+  }
+  Object.keys(spriteMap).forEach(id=>{
+    if(!(id in f.pos)){const el=spriteMap[id];
+      if(el&&f.flash.indexOf(+id)>=0){el.classList.add("hit");setTimeout(()=>{if(el&&el.parentNode)el.parentNode.removeChild(el);},200);}
+      else if(el&&el.parentNode)el.parentNode.removeChild(el);
+      delete spriteMap[id];}
+  });
+}
+function revealOverlay(){if(wantOverlay){wantOverlay=false;$("overlay").classList.add("on");}}
+function present(){
+  if(!frames.length){render();revealOverlay();return;}
+  anim=true;render();           /* 清掉舊高亮、更新鏈/按鈕;此時不同步精靈(由 applyFrame 接管) */
+  let i=0;
+  const finish=()=>{anim=false;frames=[];render();revealOverlay();};
+  const tick=()=>{
+    if(i>=frames.length){animTimer=setTimeout(finish,STEP_MS);return;}
+    applyFrame(frames[i]);i++;animTimer=setTimeout(tick,STEP_MS);
+  };
+  tick();
+}
+function skipAnim(){ if(!anim)return;if(animTimer)clearTimeout(animTimer);if(frames.length)applyFrame(frames[frames.length-1]);anim=false;frames=[];render();revealOverlay(); }
+
+/* ===== 渲染 ===== */
+const ICON={mage:"🧙",imp:"👾",eye:"👁",boss:"🗿"};
+/* 畫順序鏈:slots=[{kind,tag,now}]。render() 與動畫每幀共用,讓「現在」格能在播放中前進。 */
+function paintChain(slots){
+  const chain=$("chain");chain.innerHTML="";
+  slots.forEach((s,i)=>{
+    if(i>0){const ar=document.createElement("span");ar.className="arrowx";ar.textContent="›";chain.appendChild(ar);}
+    const d=document.createElement("div");d.className="slot"+(s.kind==="mage"?" mage":"")+(s.now?" now":"");
+    d.textContent=ICON[s.kind];if(s.tag){const t=document.createElement("span");t.className="tag";t.textContent=s.tag;d.appendChild(t);}
+    chain.appendChild(d);
+  });
+}
+function render(){
+  if(simRunning)return;
+  $("hpFill").style.transform="scaleX("+Math.max(0,mage.hp)/mage.maxhp+")";
+  $("hpTxt").textContent=Math.max(0,mage.hp)+"/"+mage.maxhp;
+  const boss=G.entities.find(e=>e.kind==="boss");
+  if(boss){$("bossFill").style.transform="scaleX("+Math.max(0,boss.hp)/boss.maxhp+")";$("bossTxt").textContent=Math.max(0,boss.hp)+"/"+boss.maxhp;}
+  $("hasteTag").style.display=mage.hasteTurns>0?"":"none";$("hasteTag").textContent="急速 ×"+mage.hasteTurns;
+  if($("potionCount"))$("potionCount").textContent="×"+potions;
+  $("castTag").style.display=mage.channel?"":"none";
+  if(mage.channel)$("castTag").textContent=mage.channel.ready?"可釋放 ☄":"蓄力中";
+
+  paintChain(projectChain(9).map((s,i)=>({kind:s.kind,tag:s.tag,now:i===0})));
+
+  const slamSet={};if(boss&&boss.slam)boss.slam.forEach(t=>slamSet[t.x+","+t.y]=1);
+  const castSet={};if(mage.channel)heavyArea(mage.channel.x,mage.channel.y).forEach(t=>castSet[t.x+","+t.y]=1);
+  const mv={},tg={};
+  if(waiting&&sel==="move"){
+    const k=(x,y)=>x+","+y,q=[{x:mage.x,y:mage.y}],seen={};seen[k(mage.x,mage.y)]=1;
+    while(q.length){const c=q.shift();
+      for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){if(!dx&&!dy)continue;
+        const x=c.x+dx,y=c.y+dy;if(!inB(x,y))continue;const kk=k(x,y);if(seen[kk])continue;
+        if(!walkable(x,y)||entAt(x,y))continue;
+        if(G.tiles[y][x]==="spike"||G.fire[y][x]>0)continue;
+        seen[kk]=1;mv[kk]=1;q.push({x,y});}}
+    delete mv[k(mage.x,mage.y)];
+  }
+  const pathSet={};let pathEndK=null,pathStopK=null;
+  if(waiting&&sel==="move"&&hover&&!(hover.x===mage.x&&hover.y===mage.y)){
+    const pp=findPath(mage.x,mage.y,hover.x,hover.y);
+    if(pp&&pp.length){
+      let stopped=false;
+      for(const s of pp){const kk=s.x+","+s.y;
+        if(aliveEnemies().some(en=>cheb(en,s)===1)){pathStopK=kk;pathSet[kk]=1;stopped=true;break;} // 預測:踏進敵人控制區就停
+        pathSet[kk]=1;}
+      pathEndK=stopped?null:(pp[pp.length-1].x+","+pp[pp.length-1].y);
+    }
+  }
+  if(waiting&&SPELLS[sel])SPELLS[sel].preview().forEach(c=>{tg[c.x+","+c.y]=1;});
+
+  let fb=feedback;
+  if(!fb&&waiting&&!(mage.channel&&mage.channel.ready)&&Object.keys(tg).length===0&&SPELLS[sel]){
+    fb=SPELLS[sel].noTarget;
+  }
+  $("feedback").innerHTML=fb;
+
+  const board=$("board");board.style.gridTemplateColumns="repeat("+G.w+",42px)";board.innerHTML="";
+  board.onmouseleave=()=>{if(hover){hover=null;render();}};
+  for(let y=0;y<G.h;y++)for(let x=0;x<G.w;x++){
+    const c=document.createElement("div");let t=G.tiles[y][x];if(G.fire[y][x]>0&&t!=="woodburn")t="fire";
+    c.className="cell t-"+t;const k=x+","+y;
+    if(slamSet[k])c.classList.add("slam");
+    if(castSet[k])c.classList.add("slam");
+    if(pathSet[k])c.classList.add("path");else if(mv[k])c.classList.add("move");
+    if(k===pathEndK)c.classList.add("pathend");
+    if(k===pathStopK)c.classList.add("pathstop");
+    if(tg[k])c.classList.add("tgt");
+    const cx=x,cy=y;
+    c.onclick=()=>cellClick(cx,cy);
+    c.onmousemove=()=>{if(waiting&&sel==="move"&&(!hover||hover.x!==cx||hover.y!==cy)){hover={x:cx,y:cy};render();}};
+    board.appendChild(c);
+  }
+  syncSprites();
+  const ready=!!(mage.channel&&mage.channel.ready);
+  document.querySelectorAll("button.act[data-a]").forEach(b=>{const a=b.dataset.a;if(a==="cancel")return;let dis=!waiting||ready;if(a==="potion")dis=dis||potions<=0||mage.hp>=mage.maxhp;b.disabled=dis;b.classList.toggle("sel",sel===a);});
+  if(ready)$("hint").innerHTML="☄ <b>蓄力完成!</b>前搖撐過去了——點<b style='color:#e2574c'>紅格</b>(或棋盤任意處)轟下去。";
+  $("log").innerHTML=logLines.slice(-5).join("<br>");
+}
+function syncSprites(){
+  if(anim)return;
+  const spr=$("sprites");if(!spr)return;
+  const seen={};
+  G.entities.filter(e=>e.hp>0).forEach(e=>{
+    seen[e.id]=1;
+    let el=spriteMap[e.id];const fresh=!el;
+    if(fresh){el=document.createElement("div");el.className="sprite";spriteMap[e.id]=el;}
+    el.style.left=(e.x*45)+"px";el.style.top=(e.y*45)+"px";
+    el.innerHTML="";
+    const ic=document.createElement("span");ic.textContent=ICON[e.kind];el.appendChild(ic);
+    if(e.kind!=="mage"){const hp=document.createElement("span");hp.className="ehp";hp.textContent=e.hp;el.appendChild(hp);}
+    let danger=false;
+    if(e.kind==="imp"&&cheb(e,mage)===1)danger=true;
+    if(e.kind==="eye"&&cheb(e,mage)<=CFG.eye.range&&los(e.x,e.y,mage.x,mage.y))danger=true;
+    if(e.stun>0){const d=document.createElement("span");d.className="danger";d.textContent="💫";el.appendChild(d);} // 被暈:這一手不會動
+    else if(danger){const d=document.createElement("span");d.className="danger";d.textContent="⚠";el.appendChild(d);}
+    if(fresh)spr.appendChild(el); /* 先定位再掛上 → 第一次出現不會從 (0,0) 滑進來 */
+  });
+  Object.keys(spriteMap).forEach(id=>{if(!seen[id]){const el=spriteMap[id];if(el.parentNode)el.parentNode.removeChild(el);delete spriteMap[id];}});
+}
+function log(s){logLines.push(s);}
+
+/* ===== 勝敗 / 換房 ===== */
+function checkClear(){
+  if($("overlay").classList.contains("on"))return true;
+  const boss=G.entities.find(e=>e.kind==="boss");
+  if(boss&&boss.hp<=0){showOverlay("Demo 1 · 一場 run 完成 🎉","本場流派:"+buildSummary()+"。死了會重洗佈局與選項——這就是『再來一局』。","再玩一次","run");return true;}
+  if(!boss&&aliveEnemies().length===0){
+    if(G.roomIdx<ROOMS.length-1){showPick();return true;}
+  }
+  return false;
+}
+function buildSummary(){ return acquired.length?acquired.map(id=>SPELLS[id].name+(tierOf(id)>=2?"★":"")).join("、"):"純基礎包(這場沒撿法術)"; }
+function defeat(){waiting=false;render();showOverlay("你被擊倒了","重來一場——這就是 roguelite 的『再來一局』。","重新開始","run");}
+let pending=null;
+function showOverlay(t,p,b,act){$("ovTitle").textContent=t;$("ovText").textContent=p;$("ovBtn").textContent=b;pending=act;if(simRunning)wantOverlay=true;else $("overlay").classList.add("on");render();}
+$("ovBtn").onclick=()=>{$("overlay").classList.remove("on");if(pending==="run")loadRoom(0);else if(pending&&pending.startsWith("room:"))loadRoom(parseInt(pending.split(":")[1]));};
+
+/* ===== Demo 1 三選一撿取 ===== */
+/* 確定性 PRNG:同 (RUN_SEED, 用途, 索引) → 同序列。三選一靠這個重現,絕不碰 Math.random。 */
+function hash32(s){ let h=2166136261>>>0; for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); } return h>>>0; }
+function mulberry32(a){ return function(){ a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+function rngFor(tag,idx){ return mulberry32(hash32(RUN_SEED+"|"+tag+"|"+idx)); } // 跟「前面抽過幾次」無關 → 任何路徑都能重現
+
+const PICKABLE=()=>Object.keys(SPELLS).filter(id=>SPELLS[id].baseline===false);
+function genOffers(){
+  const pool=PICKABLE().filter(id=>{
+    if(acquired.indexOf(id)<0)return true;                 // 未撿 → 可獲得
+    return tierOf(id) < (SPELLS[id].maxTier||1);            // 已撿但未滿級 → 可升級
+  });
+  const rand=rngFor("picks",G.roomIdx);   // 種子 + 用途 + 地牢編號;同種子同進度 → 同三張
+  for(let i=pool.length-1;i>0;i--){const j=Math.floor(rand()*(i+1));const t=pool[i];pool[i]=pool[j];pool[j]=t;}
+  return pool.slice(0,3);
+}
+function showPick(){
+  const offers=genOffers();
+  if(!offers.length){ showOverlay("房間清空 ✨","可撿的法術都拿過了,直接前進。","繼續","room:"+(G.roomIdx+1)); return; }
+  $("ovTitle").textContent="清關!三選一";
+  $("ovText").innerHTML="挑一張帶走(欄位 "+acquired.length+"/"+SPELL_CAP+")。撿不同法術會長出不同打法。";
+  $("ovBtn").style.display="none";
+  const box=$("ovOffers"); box.style.display="flex"; box.innerHTML="";
+  offers.forEach(id=>{const s=SPELLS[id];
+    const b=document.createElement("button"); b.className="offer";
+    const owned=acquired.indexOf(id)>=0;
+    if(owned){ // 升級卡:不占槽
+      b.innerHTML='<span class="oi">'+s.icon+'</span><span class="ot"><b>升級 '+s.name+'</b> <span class="oe">★ → ★★</span><br><span class="od">'+(s.up||"")+'</span></span>';
+    } else {
+      b.innerHTML='<span class="oi">'+s.icon+'</span><span class="ot"><b>'+s.name+'</b> <span class="oe">'+ELNAME[s.element]+'</span><br><span class="od">'+(s.desc||"")+'</span></span>';
+    }
+    b.onclick=()=>choosePick(id); box.appendChild(b); });
+  if(simRunning)wantOverlay=true; else $("overlay").classList.add("on");
+}
+function choosePick(id){
+  if(acquired.indexOf(id)>=0){ // 已有 → 升級,不占槽、不觸發割捨
+    tier[id]=Math.min((SPELLS[id].maxTier||1), tierOf(id)+1);
+    opLog.push({op:"upgrade",room:G.roomIdx,id});
+    finishPick(); return;
+  }
+  if(acquired.length<SPELL_CAP){ acquired.push(id); tier[id]=1; opLog.push({op:"pick",room:G.roomIdx,take:id}); finishPick(); }
+  else { showDrop(id); }
+}
+function showDrop(newId){
+  $("ovTitle").textContent="法術已滿("+SPELL_CAP+")";
+  $("ovText").innerHTML="點一張丟掉,換上 <b>"+SPELLS[newId].name+"</b>。";
+  const box=$("ovOffers"); box.innerHTML="";
+  acquired.forEach((oid,i)=>{const s=SPELLS[oid];
+    const b=document.createElement("button"); b.className="offer";
+    b.innerHTML='<span class="oi">'+s.icon+'</span><span class="ot"><b>丟掉 '+s.name+'</b></span>';
+    b.onclick=()=>{ opLog.push({op:"pick",room:G.roomIdx,take:newId,drop:oid}); delete tier[oid]; acquired[i]=newId; tier[newId]=1; finishPick(); }; box.appendChild(b); });
+}
+function finishPick(){
+  $("overlay").classList.remove("on");
+  $("ovBtn").style.display=""; const box=$("ovOffers"); box.style.display="none"; box.innerHTML="";
+  loadRoom(G.roomIdx+1);
+}
+
+/* ===== 綁定 ===== */
+/* 由 registry 生成法術按鈕:基礎包(看 baseline 旗標)+ 已撿取(acquired)。新增一招免改 HTML */
+function buildSpellButtons(){
+  const acts=$("actions");
+  acts.querySelectorAll('button.act[data-a]').forEach(b=>{ if(SPELLS[b.dataset.a]) b.remove(); });
+  const waitBtn=acts.querySelector('button.act[data-a="wait"]');
+  const order=[...SPELL_ORDER.filter(id=>SPELLS[id]&&SPELLS[id].baseline), ...acquired];
+  order.forEach(id=>{const s=SPELLS[id];
+    const b=document.createElement("button");b.className="act";b.dataset.a=id;
+    const star=tierOf(id)>=2?' <span class="c" style="color:var(--gold)">★</span>':'';
+    b.innerHTML=s.icon+" "+s.name+star+' <span class="c">'+s.cost+"</span>";
+    acts.insertBefore(b,waitBtn);});
+}
+$("actions").addEventListener("click",ev=>{const b=ev.target.closest("button.act[data-a]");if(!b)return;if(b.dataset.a!=="cancel"&&b.disabled)return;selectAction(b.dataset.a);});
+loadRoom(0);
+</script>
+</body>
+</html>
