@@ -255,8 +255,12 @@ pub fn cast(spell: Spell, g: &mut GameState, t: Target, ctx: &mut StepCtx) {
     });
     match spell {
         Spell::Bolt => {
-            if let Some(e) = enemy_at(g, t.x, t.y) {
-                deal_damage(g, e, BOLT_DMG, ctx);
+            // 投射物攔截:命中視線上**第一個**單位(擋在前面的敵人會替後方擋彈)。
+            let (mx, my) = mage_pos(g);
+            if let Some(victim) = crate::grid::first_unit_on_ray(g, mx, my, t.x, t.y) {
+                if !g.entities[victim].kind.is_mage() {
+                    deal_damage(g, victim, BOLT_DMG, ctx);
+                }
             }
         }
         Spell::Push => {

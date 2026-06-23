@@ -73,6 +73,36 @@ fn push_into_spike_damages() {
 }
 
 #[test]
+fn push_is_eight_directional() {
+    // 法師(1,1)、小鬼(2,2) 斜對角相鄰 → 推往右下,落到 (3,3)(8 向)。
+    let mut g = make(&["....", "....", "....", "...."]);
+    g.entities.push(Entity::new(0, Kind::Mage, 1, 1));
+    g.entities.push(Entity::new(1, Kind::Imp, 2, 2));
+    g.entities.sort_by_key(|e| e.id);
+    let mut ctx = StepCtx::new();
+    let i = imp_idx(&g);
+    do_push(&mut g, i, &mut ctx);
+    assert_eq!((ent(&g, i).x, ent(&g, i).y), (3, 3), "斜推應沿對角 8 向");
+}
+
+#[test]
+fn push_moves_when_behind_is_empty_even_if_beside_another() {
+    // 兩隻並排:法師(1,2)、A(2,2)、B(2,3)。推 A 往右(後方 (3,2) 空)→ A 到 (3,2),B 不動。
+    let mut g = make(&[".....", ".....", ".....", ".....", "....."]);
+    g.entities.push(Entity::new(0, Kind::Mage, 1, 2));
+    g.entities.push(Entity::new(1, Kind::Imp, 2, 2)); // A
+    g.entities.push(Entity::new(2, Kind::Imp, 2, 3)); // B(並排)
+    g.entities.sort_by_key(|e| e.id);
+    let mut ctx = StepCtx::new();
+    let a = g.entities.iter().position(|e| e.id == 1).unwrap();
+    do_push(&mut g, a, &mut ctx);
+    let ax = g.entities.iter().find(|e| e.id == 1).map(|e| (e.x, e.y)).unwrap();
+    let bx = g.entities.iter().find(|e| e.id == 2).map(|e| (e.x, e.y)).unwrap();
+    assert_eq!(ax, (3, 2), "後方空 → A 應被推動");
+    assert_eq!(bx, (2, 3), "並排的 B 不受影響");
+}
+
+#[test]
 fn push_into_wall_crashes() {
     // 小鬼背靠牆:推不動 → 撞擊傷。地圖 @o#:小鬼(1,0)後面是牆(2,0)。
     let mut g = make(&["@o#"]);

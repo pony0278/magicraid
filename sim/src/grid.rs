@@ -111,3 +111,27 @@ pub fn los(g: &GameState, ax: i32, ay: i32, bx: i32, by: i32) -> bool {
     }
     true
 }
+
+/// 投射物攔截:`(ax,ay)`→`(bx,by)` 視線上的第一個單位(不含起點格、含終點)。
+///
+/// 取樣與 `los` 完全相同 → 攔截者必落在同一條 LoS 線上(行為一致、確定性)。
+/// 用於魔法彈等直線投射:擋在前面的單位先中彈(身體當掩體)。遇阻擋牆則中止(回 `None`)。
+pub fn first_unit_on_ray(g: &GameState, ax: i32, ay: i32, bx: i32, by: i32) -> Option<usize> {
+    let dx = bx - ax;
+    let dy = by - ay;
+    let steps = dx.abs().max(dy.abs());
+    if steps == 0 {
+        return None;
+    }
+    for i in 1..=steps {
+        let x = round_div(ax * steps + dx * i, steps);
+        let y = round_div(ay * steps + dy * i, steps);
+        if let Some(idx) = ent_index_at(g, x, y) {
+            return Some(idx);
+        }
+        if blocks_sight(g, x, y) {
+            return None;
+        }
+    }
+    None
+}
