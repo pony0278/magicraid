@@ -29,50 +29,6 @@ fn step_toward(g: &GameState, sx: i32, sy: i32, tx: i32, ty: i32) -> Option<(i32
     }
 }
 
-/// 最近的、可抵達的指定地形格(用於撿急速符文)。
-fn nearest_reachable_tile(g: &GameState, mx: i32, my: i32, want: Tile) -> Option<(i32, i32)> {
-    let mut best: Option<((i32, i32), usize)> = None;
-    for y in 0..g.h {
-        for x in 0..g.w {
-            if g.tiles[y as usize][x as usize] == want {
-                if let Some(path) = find_path(g, mx, my, x, y) {
-                    let len = path.len();
-                    if best.map_or(true, |(_, bl)| len < bl) {
-                        best = Some(((x, y), len));
-                    }
-                }
-            }
-        }
-    }
-    best.map(|(c, _)| c)
-}
-
-/// 逃離砸擊預告:最近的、可抵達的、不在預告集且非危險的格(遠離預告中心優先)。
-fn flee_cell(g: &GameState, mx: i32, my: i32, slam: &[(i32, i32)]) -> Option<(i32, i32)> {
-    let in_slam = |x: i32, y: i32| slam.contains(&(x, y));
-    let mut best: Option<((i32, i32), usize)> = None;
-    for y in 0..g.h {
-        for x in 0..g.w {
-            if !walkable(g, x, y) || ent_index_at(g, x, y).is_some() {
-                continue;
-            }
-            if in_slam(x, y) {
-                continue;
-            }
-            if g.tiles[y as usize][x as usize] == Tile::Spike || g.fire[y as usize][x as usize] > 0 {
-                continue;
-            }
-            if let Some(path) = find_path(g, mx, my, x, y) {
-                let len = path.len();
-                if best.map_or(true, |(_, bl)| len < bl) {
-                    best = Some(((x, y), len));
-                }
-            }
-        }
-    }
-    best.map(|(c, _)| c)
-}
-
 /// 八方向(與 stepToward/igniteOil 同序)。
 const DIRS8: [(i32, i32); 8] = [
     (-1, -1),
@@ -156,58 +112,31 @@ pub fn choose_action(g: &GameState, run: &RunState) -> Action {
     }
 
     // ── 魔像戰 ──
+    // 關鍵節奏:**每手都打魔像**。普攻 3,過熱窗口雙倍 = 6;魔像 ~5 發內倒,期間只挨 1–2 下砸擊
+    // (14 HP 撐得住)。逃跑/繞路撿符文反而打斷輸出節奏 → 不做。血真的快沒了才補。
     if let Some(boss) = foes.iter().copied().find(|e| e.kind == Kind::Boss) {
-        let on_slam = boss.pending_slam
-            && boss
-                .slam
-                .as_ref()
-                .is_some_and(|s| s.contains(&(mx, my)));
-        // 1) 逃離砸擊預告(站在預告格上時)。auto-walk 可在一個 step 內走多格逃出 3×3。
-        if on_slam {
-            if let Some(dest) = flee_cell(g, mx, my, boss.slam.as_ref().unwrap()) {
-                return Action::MoveTo { x: dest.0, y: dest.1 };
-            }
-        }
-        // 1.5) 不急著逃時血量低就補(過熱窗口優先爆發,不補)。
-        if !on_slam && !boss.exhausted && mage.hp <= 6 && run.potions > 0 {
+        let can_bolt = validate(Spell::Bolt, g, Target::cell(boss.x, boss.y)).is_ok();
+        // 不在過熱窗口、血很低、且這手打不到 boss(沒輸出損失)→ 補血。
+        if !boss.exhausted && mage.hp <= 4 && run.potions > 0 && !can_bolt {
             return Action::Potion;
         }
-        // 2) 沒加速時去撿急速符文(逃砸擊的關鍵機動)。
-        if mage.haste_turns == 0 {
-            if let Some(rune) = nearest_reachable_tile(g, mx, my, Tile::Rune) {
-                if let Some(s) = step_toward(g, mx, my, rune.0, rune.1) {
-                    return Action::MoveTo { x: s.0, y: s.1 };
-                }
-            }
+        // 過熱窗口火球(★★ 留火腳下 DoT)優先,否則魔法彈;在射程就打。
+        if boss.exhausted
+            && owns(Spell::Fire)
+            && validate(Spell::Fire, g, Target::cell(boss.x, boss.y)).is_ok()
+        {
+            return Action::Cast {
+                spell: Spell::Fire,
+                target: Target::cell(boss.x, boss.y),
+            };
         }
-        // 3) 過熱窗口爆發(雙倍傷):烈焰術 > 火球(★★ 留火腳下 DoT)> 魔法彈。
-        if boss.exhausted {
-            if owns(Spell::Heavy) && validate(Spell::Heavy, g, Target::cell(boss.x, boss.y)).is_ok() {
-                return Action::Cast {
-                    spell: Spell::Heavy,
-                    target: Target::cell(boss.x, boss.y),
-                };
-            }
-            if owns(Spell::Fire) && validate(Spell::Fire, g, Target::cell(boss.x, boss.y)).is_ok() {
-                return Action::Cast {
-                    spell: Spell::Fire,
-                    target: Target::cell(boss.x, boss.y),
-                };
-            }
-            if validate(Spell::Bolt, g, Target::cell(boss.x, boss.y)).is_ok() {
-                return Action::Cast {
-                    spell: Spell::Bolt,
-                    target: Target::cell(boss.x, boss.y),
-                };
-            }
-        }
-        // 4) 平時用魔法彈消耗;否則接近。
-        if validate(Spell::Bolt, g, Target::cell(boss.x, boss.y)).is_ok() {
+        if can_bolt {
             return Action::Cast {
                 spell: Spell::Bolt,
                 target: Target::cell(boss.x, boss.y),
             };
         }
+        // 不在射程 → 接近(LoS/距離拉進就能持續輸出)。
         if let Some(s) = step_toward(g, mx, my, boss.x, boss.y) {
             return Action::MoveTo { x: s.0, y: s.1 };
         }

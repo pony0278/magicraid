@@ -72,17 +72,22 @@ fn rooms_3_and_4_are_solvable() {
 }
 
 #[test]
-fn boss_room_is_reached_known_gap() {
-    // 文件化現況:boss 房可抵達,但 baseline 尚未通關(設計上的技巧關)。
-    // 一旦未來更強 agent 能通關,把此測試升級成斷言 RunComplete。
-    let last = room_count() - 1;
-    let reached: u32 = (0..SEEDS)
-        .filter(|&s| play(s, BUDGET).max_room >= last)
-        .count() as u32;
+fn boss_room_is_solvable() {
+    // boss(最後一房)可解:至少一個種子由 baseline 全程通關(RunComplete)。
+    // 階段 B 閘門「每房至少一條解」由此對 boss 房成立。
     let cleared: u32 = (0..SEEDS)
         .filter(|&s| play(s, BUDGET).outcome == Status::RunComplete)
         .count() as u32;
-    assert!(reached > 0, "應有種子抵達 boss 房");
-    // 已知缺口:cleared 目前為 0。不硬性斷言通關,只記錄。
-    println!("boss 房:抵達 {reached} 場,baseline 通關 {cleared} 場(已知缺口)");
+    assert!(
+        cleared > 0,
+        "沒有任何種子全程通關(含 boss)→ boss 房可解性未證"
+    );
+    println!("baseline 全程通關(含 boss):{cleared}/{SEEDS} 場");
+}
+
+#[test]
+fn whole_run_is_solvable_end_to_end() {
+    // 端到端:存在種子讓 baseline 從房 0 一路打到通關 → 整條 run 可解。
+    let any_complete = (0..SEEDS).any(|s| play(s, BUDGET).outcome == Status::RunComplete);
+    assert!(any_complete, "沒有任何種子端到端通關");
 }

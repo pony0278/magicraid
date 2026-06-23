@@ -83,13 +83,20 @@ fn main() {
     println!(
         "  房 {}(boss)可解 {}",
         rooms - 1,
-        if boss_cleared { "✓" } else { "✗(baseline 未攻克;設計上的技巧關 — 見備註)" }
+        if boss_cleared {
+            "✓(baseline 全程通關過)"
+        } else {
+            "✗(baseline 未攻克)"
+        }
     );
 
+    if !boss_cleared {
+        eprintln!("✗ boss 房沒有任何種子被攻克 → 可解性未證");
+        ok = false;
+    }
+
     if ok {
-        println!("\n✓ 核心閘門全過:無崩潰、無非確定性、無卡死。");
-        println!("  備註:boss 房是設計上的技巧關(急速閃砸 + 過熱爆發),貪婪 baseline 尚未攻克;");
-        println!("        需更強 agent 或手寫解法序列才能證明 boss 可解(見 docs/07 backlog)。");
+        println!("\n✓ 階段 B 閘門全過:無崩潰、無非確定性、無卡死,且房 0–5(含 boss)皆可解。");
     } else {
         std::process::exit(1);
     }

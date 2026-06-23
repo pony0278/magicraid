@@ -58,17 +58,17 @@
 - [x] native build(同一份 sim,不走 WASM;workspace member)
 - [x] baseline 參考 agent(貪婪:逃砸擊/撿符文/推勾進危險格/過熱爆發/普攻/接近)
 - [x] harness 跑批次種子(500 seeds),蒐集崩潰/卡死/不可解 → **0 崩潰、0 卡死**
-- [x] 可解性:**房 0–4 由 baseline 攻克**(每房至少一條解,真種子驗證)
-- [ ] ⚠ **boss 房(房 5)未由 baseline 攻克** — 設計上的技巧關(急速閃砸 + 過熱爆發)。
-      待更強 agent / 手寫解法序列證明可解,屆時把 `boss_room_is_reached_known_gap` 升級成斷言通關。
+- [x] 可解性:**房 0–5(含 boss)全部由 baseline 攻克**(每房至少一條解,真種子驗證)
+      - boss 攻略:過熱窗口節奏穩打魔法彈(普攻 3 / 過熱雙倍 6),~5 發內倒、只挨 1–2 下砸擊。
+      - 端到端:500 場約 22% 全程通關(其餘多卡在房 3 三敵群,屬 agent 強度非可解性問題)。
 
 ### B-3　確定性 / 回放驗證
 - [x] 同 `(seed, op 序列)` → bit 級相同最終狀態(harness replay,500 場 **0 不一致**)
 - [x] event 流可重放(`step` 吐 events;view 之後靠它重建動畫)
 - [ ] **JS↔Rust 對拍**:同輸入跑兩份,逐 event 比對抓漂移(待客戶端接上 WASM 後做)
 
-> **🚪 階段 B 閘門**:同種子同操作序列 bit 一致 ✅ + harness 房可解(0–4 ✅、boss ⚠ 缺口)。
-> 確定性地基已穩;boss 可解性與 JS↔Rust 對拍是接客戶端前的剩餘項。
+> **🚪 階段 B 閘門**:同種子同操作序列 bit 一致 ✅ + harness 全房可解(0–5 含 boss ✅)。
+> **閘門達成**。剩 JS↔Rust 對拍(需 WASM)留待階段 C 接客戶端時做。
 
 ---
 
