@@ -3,35 +3,35 @@
 
 // ── 法術表(view metadata;code 對齊 sim SPELL_ORDER)──
 const SPELLS = [
-  { code: 0, id: "bolt", name: "魔法彈", icon: "✨", target: "enemy", baseline: true },
-  { code: 1, id: "push", name: "推", icon: "👐", target: "adjEnemy", baseline: true },
-  { code: 2, id: "fire", name: "火球", icon: "🔥", target: "cell" },
-  { code: 3, id: "heavy", name: "烈焰術", icon: "☄", target: "cell", channel: true },
-  { code: 4, id: "oilflask", name: "澆油", icon: "🛢️", target: "cell" },
-  { code: 5, id: "hook", name: "勾索", icon: "🪝", target: "enemy" },
-  { code: 6, id: "haste", name: "加速術", icon: "⚡", target: "self" },
+  { code: 0, id: "bolt", name: "Bolt", icon: "✨", target: "enemy", baseline: true },
+  { code: 1, id: "push", name: "Push", icon: "👐", target: "adjEnemy", baseline: true },
+  { code: 2, id: "fire", name: "Fireball", icon: "🔥", target: "cell" },
+  { code: 3, id: "heavy", name: "Inferno", icon: "☄", target: "cell", channel: true },
+  { code: 4, id: "oilflask", name: "Oil Flask", icon: "🛢️", target: "cell" },
+  { code: 5, id: "hook", name: "Hook", icon: "🪝", target: "enemy" },
+  { code: 6, id: "haste", name: "Haste", icon: "⚡", target: "self" },
 ];
 const ROOM_NAMES = [
-  "房間 1 · 順序鏈 + 視線", "房間 2 · 尖刺場", "房間 3 · 油 + 木牆",
-  "房間 4 · 開闊場", "房間 5 · 油陣", "關主 · 符文魔像",
+  "Room 1 · Order & Sight", "Room 2 · Spikes", "Room 3 · Oil & Wood",
+  "Room 4 · Open Field", "Room 5 · Oil Field", "Boss · Rune Golem",
 ];
 const TILE = { FLOOR: 0, WALL: 1, WOOD: 2, WOODBURN: 3, OIL: 4, SPIKE: 5, RUNE: 6 };
 const ST = { INPUT: 0, RELEASE: 1, PICK: 2, COMPLETE: 3, DEFEAT: 4 };
 const KIND_ICON = { mage: "🧙", imp: "👹", eye: "👁", boss: "🗿" };
 // reject 原因碼 → 訊息(對齊 web/src/lib.rs reject_code)。
 const REJECT_MSG = {
-  1: "那裡沒有敵人(沒點到敵人格?)",
-  2: "超出射程",
-  3: "沒有視線(被牆擋住)",
-  4: "不是相鄰敵人 — 推只能推緊鄰你的敵人(含斜角)",
-  5: "它已經貼著你了",
-  6: "目標是牆",
-  7: "只能用在空地板",
-  8: "超出邊界",
-  9: "沒血瓶或血已滿",
-  10: "那格不能走(有東西/原地)",
-  11: "找不到路",
-  12: "沒有可釋放的蓄力",
+  1: "No enemy there",
+  2: "Out of range",
+  3: "No line of sight (a wall blocks it)",
+  4: "Not adjacent — Push only hits enemies right next to you (incl. diagonals)",
+  5: "It's already next to you",
+  6: "That's a wall",
+  7: "Floor tiles only",
+  8: "Out of bounds",
+  9: "No potion, or HP is full",
+  10: "Can't move there (occupied / same tile)",
+  11: "No path",
+  12: "Nothing to release",
 };
 
 // ── Poki SDK 薄殼:有就用,沒有就 no-op(離線/本機開發)──
@@ -112,7 +112,7 @@ function doStep(act, x = 0, y = 0, spell = 0) {
   refresh(); // state = 新狀態
   logStep(act, x, y, spell, before, events, rejected, reason);
   if (rejected) {
-    flash("✋ " + (REJECT_MSG[reason] || "那一手不行"));
+    flash("✋ " + (REJECT_MSG[reason] || "Invalid move"));
     render();
     return;
   }
@@ -231,25 +231,25 @@ function logMsg(s) {
   el.textContent = logLines.join("\n");
   el.scrollTop = el.scrollHeight;
 }
-const ACT_NAME = { 0: "待機", 1: "回血瓶", 2: "移動", 4: "釋放" };
+const ACT_NAME = { 0: "Wait", 1: "Potion", 2: "Move", 4: "Release" };
 // 把一手記成一行:動作→目標 [法師位置 / 切比雪夫距離]:結果(移動/傷害 或 拒絕原因)。
 function logStep(act, x, y, spell, before, events, rejected, reason) {
-  const name = act === 3 ? `施法:${SPELLS[spell].name}` : ACT_NAME[act] || `act${act}`;
+  const name = act === 3 ? `Cast: ${SPELLS[spell].name}` : ACT_NAME[act] || `act${act}`;
   const m = before[0]; // 法師(id 0)行動前位置
   let head = name;
   if (act === 2 || act === 3) {
     const d = m ? Math.max(Math.abs(x - m.x), Math.abs(y - m.y)) : "?";
-    head += `→(${x},${y}) [法(${m ? m.x : "?"},${m ? m.y : "?"}) d=${d}]`;
+    head += `→(${x},${y}) [mage(${m ? m.x : "?"},${m ? m.y : "?"}) d=${d}]`;
   }
   let out;
   if (rejected) {
-    out = "✗ " + (REJECT_MSG[reason] || `拒絕#${reason}`);
+    out = "✗ " + (REJECT_MSG[reason] || `Rejected #${reason}`);
   } else {
     const mv = events.filter((e) => e.t === "mv").map((e) => `#${e.id}(${e.fx},${e.fy})→(${e.tx},${e.ty})`);
     const dmg = events.filter((e) => e.t === "dmg").map((e) => `#${e.id}-${e.amt}`);
     const die = events.filter((e) => e.t === "die").map((e) => `☠#${e.id}`);
-    out = "✓ " + [mv.length ? "移:" + mv.join(" ") : "", dmg.length ? "傷:" + dmg.join(" ") : "", die.join(" ")]
-      .filter(Boolean).join(" | ") || "✓(無事件)";
+    out = "✓ " + [mv.length ? "mv:" + mv.join(" ") : "", dmg.length ? "dmg:" + dmg.join(" ") : "", die.join(" ")]
+      .filter(Boolean).join(" | ") || "✓ (no events)";
   }
   logMsg(`${head}: ${out}`);
 }
@@ -281,7 +281,7 @@ function onCanvasTap(ev) {
     else doStep(2, p.x, p.y, 0);                          // 移動
   } else {
     pending = { x, y };
-    flash(selSpell !== null ? "再點一次確認施法 ✓(點別處改目標)" : "再點一次確認移動 ✓(點別處改目標)");
+    flash(selSpell !== null ? "Tap again to cast ✓ (tap elsewhere to re-aim)" : "Tap again to move ✓ (tap elsewhere to re-aim)");
     drawStatic();
   }
 }
@@ -289,7 +289,7 @@ cv.addEventListener("click", onCanvasTap);
 
 // ── UI:動作列 + 順序鏈 + overlay ──
 function render() {
-  $("hud").textContent = ROOM_NAMES[state.room] || `房 ${state.room}`;
+  $("hud").textContent = ROOM_NAMES[state.room] || `Room ${state.room}`;
   renderChain();
   renderBar();
   renderOverlay();
@@ -301,7 +301,7 @@ function renderChain() {
   for (const s of state.chain) {
     const d = document.createElement("div");
     d.className = "slot" + (s.k === "mage" ? " mage" : "") + (s.rel ? " rel" : "");
-    d.textContent = (KIND_ICON[s.k] || "?") + (s.rel ? " 釋放" : "");
+    d.textContent = (KIND_ICON[s.k] || "?") + (s.rel ? " ⚡" : "");
     el.appendChild(d);
   }
 }
@@ -324,16 +324,16 @@ function renderBar() {
       if (sp.target === "self") { doStep(3, 0, 0, code); return; }
       selSpell = selSpell === code ? null : code;
       pending = null; // 換法術 → 清掉舊瞄準
-      flash(selSpell !== null ? `已選「${sp.name}」— 點目標瞄準、再點一次確認。` : "");
+      flash(selSpell !== null ? `${sp.name} selected — tap a target, then tap again to confirm.` : "");
       renderBar();
       drawStatic();
     };
     bar.appendChild(b);
   }
   // 待機 / 回血瓶 / 重來
-  const wait = mkBtn("⏳ 待機", playable, () => doStep(0));
+  const wait = mkBtn("⏳ Wait", playable, () => doStep(0));
   bar.appendChild(wait);
-  const pot = mkBtn(`🧪 回血瓶 ×${state.potions}`, playable && state.potions > 0, () => doStep(1));
+  const pot = mkBtn(`🧪 Potion ×${state.potions}`, playable && state.potions > 0, () => doStep(1));
   bar.appendChild(pot);
 }
 
@@ -352,26 +352,26 @@ function renderOverlay() {
   if (state.status === ST.PICK && pendingDrop !== null) {
     // 丟牌 UI:欄位滿(3/3),選一張丟掉換上 pendingDrop(§10「最濃的取捨」)。
     const np = SPELLS[pendingDrop];
-    show(`法術已滿(3)— 換上 ${np.icon} ${np.name}`, "丟一張舊的換上它。滿槽取捨,就是這一刻。");
+    show(`Spells full (3) — take ${np.icon} ${np.name}`, "Drop one to make room. This is the choice that matters.");
     for (const oid of state.acquired) {
       const s = SPELLS[oid];
       const star = state.tiers && state.tiers[oid] >= 2 ? " ★" : "";
-      btns.appendChild(mkBtn(`丟掉 ${s.icon} ${s.name}${star}`, true, () => {
+      btns.appendChild(mkBtn(`Drop ${s.icon} ${s.name}${star}`, true, () => {
         wasm.mr_drop(pendingDrop, oid); pendingDrop = null; wasm.mr_next_room(); selSpell = null; refresh(); render();
       }));
     }
-    btns.appendChild(mkBtn("← 取消(改挑別張)", true, () => { pendingDrop = null; renderOverlay(); }));
+    btns.appendChild(mkBtn("← Cancel (pick another)", true, () => { pendingDrop = null; renderOverlay(); }));
   } else if (state.status === ST.PICK) {
     const offers = readJson(wasm.mr_offers());
     if (offers.length === 0) {
-      show("房間清空 ✨", "可撿的都拿過了,直接前進。");
-      btns.appendChild(mkBtn("繼續 →", true, () => { wasm.mr_next_room(); selSpell = null; refresh(); render(); }));
+      show("Room cleared ✨", "Nothing left to grab — press on.");
+      btns.appendChild(mkBtn("Continue →", true, () => { wasm.mr_next_room(); selSpell = null; refresh(); render(); }));
     } else {
-      show("清關!三選一", `挑一張帶走(欄位 ${state.acquired.length}/3)。撿不同法術會長出不同打法。`);
+      show("Cleared! Pick one", `Take one (slots ${state.acquired.length}/3). Different spells grow different playstyles.`);
       for (const code of offers) {
         const sp = SPELLS[code];
         const owned = state.acquired.includes(code);
-        const b = mkBtn(`${sp.icon} ${owned ? "升級 " : ""}${sp.name}${owned ? " ★→★★" : ""}`, true, () => {
+        const b = mkBtn(`${sp.icon} ${owned ? "Upgrade " : ""}${sp.name}${owned ? " ★→★★" : ""}`, true, () => {
           if (wasm.mr_pick(code) === 1) { pendingDrop = code; renderOverlay(); } // 欄位滿 → 丟牌 UI
           else { wasm.mr_next_room(); selSpell = null; refresh(); render(); }     // 撿到/升級 → 下一房
         });
@@ -379,11 +379,11 @@ function renderOverlay() {
       }
     }
   } else if (state.status === ST.COMPLETE) {
-    show("通關 🎉", "一場 run 完成 — 這就是『再來一局』。");
-    btns.appendChild(mkBtn("再玩一次", true, () => { Poki.gameplayStop(); newRun((Math.random() * 0xffffffff) >>> 0); }));
+    show("Victory 🎉", "Run complete — that's the 'one more run'.");
+    btns.appendChild(mkBtn("Play Again", true, () => { Poki.gameplayStop(); newRun((Math.random() * 0xffffffff) >>> 0); }));
   } else if (state.status === ST.DEFEAT) {
-    show("你被擊倒了 💀", "重來一場 — roguelite 的『再來一局』。");
-    btns.appendChild(mkBtn("重新開始", true, () => { Poki.gameplayStop(); newRun((Math.random() * 0xffffffff) >>> 0); }));
+    show("Defeated 💀", "Try again — roguelite's 'one more run'.");
+    btns.appendChild(mkBtn("Restart", true, () => { Poki.gameplayStop(); newRun((Math.random() * 0xffffffff) >>> 0); }));
   }
 }
 
@@ -518,4 +518,4 @@ function drawHp(e, cell) {
   ctx.fillRect(bx, by, w * ratio, 3);
 }
 
-boot().catch((err) => { document.body.innerHTML = "<p style='padding:20px'>載入失敗:" + err + "</p>"; });
+boot().catch((err) => { document.body.innerHTML = "<p style='padding:20px'>Failed to load: " + err + "</p>"; });
