@@ -50,6 +50,7 @@ let wasm, mem; // wasm exports + helper
 let state = null;
 let selSpell = null; // 目前選取的法術(target 需瞄準時)
 let pending = null; // 觸控預覽:第一次點的瞄準格 {x,y};點同格才提交(防誤觸)
+let pendingDrop = null; // 丟牌 UI:欄位滿時待換上的法術 code(等玩家選丟哪張;null = 非丟牌中)
 let gameplayStarted = false;
 let anim = null; // 進行中的動畫(events→重建);null = 靜態
 
@@ -85,6 +86,7 @@ function newRun(seed) {
   wasm.mr_new(seed >>> 0);
   selSpell = null;
   pending = null;
+  pendingDrop = null;
   gameplayStarted = false;
   refresh();
   render();
@@ -347,7 +349,19 @@ function renderOverlay() {
   const show = (title, text) => { $("ovTitle").textContent = title; $("ovText").textContent = text; ov.classList.add("on"); };
   ov.classList.remove("on");
 
-  if (state.status === ST.PICK) {
+  if (state.status === ST.PICK && pendingDrop !== null) {
+    // 丟牌 UI:欄位滿(3/3),選一張丟掉換上 pendingDrop(§10「最濃的取捨」)。
+    const np = SPELLS[pendingDrop];
+    show(`法術已滿(3)— 換上 ${np.icon} ${np.name}`, "丟一張舊的換上它。滿槽取捨,就是這一刻。");
+    for (const oid of state.acquired) {
+      const s = SPELLS[oid];
+      const star = state.tiers && state.tiers[oid] >= 2 ? " ★" : "";
+      btns.appendChild(mkBtn(`丟掉 ${s.icon} ${s.name}${star}`, true, () => {
+        wasm.mr_drop(pendingDrop, oid); pendingDrop = null; wasm.mr_next_room(); selSpell = null; refresh(); render();
+      }));
+    }
+    btns.appendChild(mkBtn("← 取消(改挑別張)", true, () => { pendingDrop = null; renderOverlay(); }));
+  } else if (state.status === ST.PICK) {
     const offers = readJson(wasm.mr_offers());
     if (offers.length === 0) {
       show("房間清空 ✨", "可撿的都拿過了,直接前進。");
@@ -358,7 +372,8 @@ function renderOverlay() {
         const sp = SPELLS[code];
         const owned = state.acquired.includes(code);
         const b = mkBtn(`${sp.icon} ${owned ? "升級 " : ""}${sp.name}${owned ? " ★→★★" : ""}`, true, () => {
-          wasm.mr_pick(code); wasm.mr_next_room(); selSpell = null; refresh(); render();
+          if (wasm.mr_pick(code) === 1) { pendingDrop = code; renderOverlay(); } // 欄位滿 → 丟牌 UI
+          else { wasm.mr_next_room(); selSpell = null; refresh(); render(); }     // 撿到/升級 → 下一房
         });
         btns.appendChild(b);
       }

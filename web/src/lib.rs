@@ -173,16 +173,32 @@ pub extern "C" fn mr_status() -> u32 {
     WORLD.with(|w| w.borrow().as_ref().map_or(0, |x| status_code(x.status)))
 }
 
-/// 三選一選一張(自動丟最舊的;v1 不做丟牌 UI)。需 status==PickOffered。
+/// 三選一選一張。回傳 **0=已套用**(撿到/升級),**1=欄位滿、需丟牌**(尚未套用 → 呼叫 `mr_drop`)。
+/// 需 status==PickOffered。
 #[no_mangle]
-pub extern "C" fn mr_pick(spell: u32) {
+pub extern "C" fn mr_pick(spell: u32) -> u32 {
+    WORLD.with(|w| {
+        let mut w = w.borrow_mut();
+        let world = match w.as_mut() {
+            Some(v) => v,
+            None => return 0,
+        };
+        let s = SPELL_BY_CODE[(spell as usize).min(6)];
+        match apply_pick(&mut world.run, s) {
+            PickResult::Done => 0,
+            PickResult::NeedDrop => 1, // 交給玩家選丟哪張(mr_drop),不再自動丟最舊
+        }
+    })
+}
+
+/// 欄位滿時:丟掉 `drop`、換上 `take`(玩家在丟牌 UI 的選擇)。對應 `mr_pick` 回 1 後。
+#[no_mangle]
+pub extern "C" fn mr_drop(take: u32, drop: u32) {
     WORLD.with(|w| {
         if let Some(world) = w.borrow_mut().as_mut() {
-            let s = SPELL_BY_CODE[(spell as usize).min(6)];
-            if let PickResult::NeedDrop = apply_pick(&mut world.run, s) {
-                let drop = world.run.acquired[0];
-                apply_drop(&mut world.run, s, drop);
-            }
+            let t = SPELL_BY_CODE[(take as usize).min(6)];
+            let d = SPELL_BY_CODE[(drop as usize).min(6)];
+            apply_drop(&mut world.run, t, d);
         }
     });
 }

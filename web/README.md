@@ -47,7 +47,7 @@ cd web/www && python3 -m http.server 8080  # → http://localhost:8080
 | `mr_step(act,x,y,spell)` | 套用一手(0 待機 /1 回血瓶 /2 移動 /3 施法 /4 釋放)→ status code |
 | `mr_rejected()` | 上一手是否非法(無時間流逝) |
 | `mr_status()` | 0 等輸入 /1 等釋放 /2 三選一 /3 通關 /4 陣亡 |
-| `mr_offers()` / `mr_pick(code)` / `mr_next_room()` | 三選一與換房 |
+| `mr_offers()` / `mr_pick(code)` / `mr_drop(take,drop)` / `mr_next_room()` | 三選一與換房;`mr_pick` 回 0=已套用、1=欄位滿需丟牌 → 玩家選後 `mr_drop` |
 | `mr_render()` + `mr_buf_len()` | 完整可渲染狀態 JSON(tiles/fire/ents/chain/slamCells/acquired/tiers) |
 
 法術 `code` 對齊 sim `SPELL_ORDER`:0 bolt /1 push /2 fire /3 heavy /4 oilflask /5 hook /6 haste。
@@ -61,5 +61,7 @@ cd web/www && python3 -m http.server 8080  # → http://localhost:8080
 - ✅ events→動畫:`mr_events()` 過 ABI,殼端逐格重放移動補間 / 命中閃光+飄字 / 死亡淡出 / 回血飄字,
   連點可跳過。**火蔓延 view-diff(A 案)**:比對 step 前後 `fire` 格,新點燃格按離火源 BFS 距離漣漪亮起
   (純表現層、不碰 sim,確定性不受影響)。
-- ⏳ 待辦:法術投射物 / `stun`·`haste`·`intr` 視覺(需 cast event 帶 target,屬 sim)、16:9 縮放填滿打磨、
-  丟牌 UI、Poki SDK 廣告點(死亡重來 / 兩局之間)、**JS↔Rust 對拍**(demo1.html JS sim vs 這顆 WASM)。
+- ✅ 觸控預覽→確認(點一格瞄準、點同格提交)、16:9/橫向版面、**JS↔Rust 對拍**(`diff/`,已接 CI)、
+  **丟牌 UI**(欄位滿時玩家選丟哪張:`mr_pick`→1 → `mr_drop`,不再自動丟最舊)。
+- ⏳ 待辦:法術投射物 / `stun`·`haste`·`intr` 視覺(需 cast event 帶 target,屬 sim)、
+  events→中文戰報在地化、Poki SDK 廣告點(死亡重來 / 兩局之間)。
