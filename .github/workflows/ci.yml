@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # 品質閘門:全 workspace 測試 + clippy(-D warnings)+ WASM 構建 + Node 邊界煙霧。
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust (stable + wasm target + clippy)
+        run: |
+          rustup toolchain install stable --profile minimal --component clippy
+          rustup default stable
+          rustup target add wasm32-unknown-unknown
+      - name: cargo test (workspace)
+        run: cargo test --workspace
+      - name: clippy (-D warnings)
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Build WASM client
+        run: |
+          cargo build -p magicraid-web --target wasm32-unknown-unknown --release
+          cp target/wasm32-unknown-unknown/release/magicraid_web.wasm web/www/
+      - name: WASM boundary smoke (Node)
+        run: node web/smoke.mjs
+      - name: Upload web bundle (artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-www
+          path: web/www
+
+  # 部署到 GitHub Pages(僅 main):一個公開網址,手機/電腦直接開來玩。
+  # ⚠ 一次性:需在 repo Settings → Pages → Source 選「GitHub Actions」才會生效。
+  deploy:
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-www
+          path: web/www
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/www
+      - id: deploy
+        uses: actions/deploy-pages@v4

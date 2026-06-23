@@ -79,7 +79,7 @@ fn try_push_kill(g: &GameState, mx: i32, my: i32, foes: &[&Entity]) -> Option<Ac
             }
             if let Some(path) = find_path(g, mx, my, px, py) {
                 let l = path.len();
-                if l <= 4 && best_move.map_or(true, |(_, bl)| l < bl) {
+                if l <= 4 && best_move.is_none_or(|(_, bl)| l < bl) {
                     best_move = Some(((px, py), l));
                 }
             }

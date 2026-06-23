@@ -65,10 +65,10 @@ fn push_into_spike_damages() {
     let mut g = make(&["@os"]);
     let mut ctx = StepCtx::new();
     let i = imp_idx(&g);
+    // IMP_HP(5) < SPIKE_DMG(6) → hp 夾到 0(被解除)。編譯期確認前提。
+    const _: () = assert!(IMP_HP < SPIKE_DMG);
     do_push(&mut g, i, &mut ctx);
     assert_eq!(ent(&g, i).x, 2, "小鬼應被推到尖刺格");
-    // IMP_HP(5) < SPIKE_DMG(6) → hp 夾到 0(被解除)。
-    assert!(IMP_HP < SPIKE_DMG);
     assert_eq!(ent(&g, i).hp, 0, "應吃尖刺傷並被解除");
 }
 

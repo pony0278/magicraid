@@ -33,8 +33,8 @@ fn main() {
                 if !det {
                     nondet += 1;
                 }
-                for r in 0..=max_room.min(rooms) {
-                    reach[r] += 1;
+                for c in reach.iter_mut().take(max_room.min(rooms) + 1) {
+                    *c += 1;
                 }
                 match outcome {
                     Status::RunComplete => complete += 1,
@@ -75,9 +75,9 @@ fn main() {
 
     // 可解性報告(每房至少一條解):房 r 被「進入」過代表前一房被解開。
     println!("\n可解性(baseline agent):");
-    for r in 1..rooms {
-        let mark = if reach[r] > 0 { "✓" } else { "✗" };
-        println!("  房 {} 可解 {mark}(後續房被進入 {} 次)", r - 1, reach[r]);
+    for (r, &c) in reach.iter().enumerate().take(rooms).skip(1) {
+        let mark = if c > 0 { "✓" } else { "✗" };
+        println!("  房 {} 可解 {mark}(後續房被進入 {} 次)", r - 1, c);
     }
     let boss_cleared = complete > 0;
     println!(

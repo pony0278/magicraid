@@ -24,6 +24,18 @@ web/build.sh
 cd web/www && python3 -m http.server 8080  # → http://localhost:8080
 ```
 
+## 線上試玩(GitHub Pages,自動部署)
+
+`.github/workflows/ci.yml` 每次 push 到 `main` 會跑測試 + 構建 WASM,並把 `web/www/`
+部署到 GitHub Pages → 一個公開網址,手機/電腦直接開來玩(免本機環境)。
+
+**一次性設定**:GitHub repo → Settings → Pages → Source 選「**GitHub Actions**」。
+(在啟用前,CI 的 `deploy` job 會失敗;`test` job 不受影響。)網址會出現在該次 Actions run 的
+`deploy` job 摘要,通常是 `https://<user>.github.io/<repo>/`。
+
+> 注意:Pages 是**公開**的(若 repo 公開)。這只是給你/測試者點開玩的 vertical slice,
+> 與 Poki 正式上架無關。後端目前**不需要**(依 docs/04 技術棧:到 Demo 3 才接 Poki AUDS)。
+
 ## 邊界設計(免 wasm-bindgen)
 
 只用已安裝的 `wasm32-unknown-unknown` target(無需 wasm-bindgen/wasm-pack CLI)。

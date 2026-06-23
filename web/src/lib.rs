@@ -245,7 +245,7 @@ fn render_json(world: &World) -> String {
             s.push(',');
         }
         let ch = e.channel.is_some();
-        let ready = e.channel.as_ref().map_or(false, |c| c.ready);
+        let ready = e.channel.as_ref().is_some_and(|c| c.ready);
         s.push_str(&format!(
             "{{\"id\":{},\"k\":\"{}\",\"x\":{},\"y\":{},\"hp\":{},\"max\":{},\"haste\":{},\"ch\":{},\"ready\":{},\"slam\":{}}}",
             e.id, kind_str(e.kind), e.x, e.y, e.hp, e.maxhp, e.haste_turns, ch, ready,
@@ -302,7 +302,7 @@ fn render_json(world: &World) -> String {
             slot.releasing
         ));
     }
-    s.push_str("]");
+    s.push(']');
 
     s.push('}');
     s
