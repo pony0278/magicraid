@@ -111,9 +111,10 @@ impl Spell {
         }
     }
 
-    /// 基礎包(不算進法杖欄位上限)。對應 JS `baseline`。
+    /// 基礎包(不算進法杖欄位上限,不進撿取池)。對齊 docs/01 §10 base kit:魔法彈 + 推。
+    /// (§10 base kit 另含火球;Demo 0/1 先只把「推」設為基礎,讓房間 2 穩定教得出推進陷阱。)
     pub fn baseline(self) -> bool {
-        matches!(self, Spell::Bolt)
+        matches!(self, Spell::Bolt | Spell::Push)
     }
 
     /// 是否前搖兩格制(channel)。對應 JS `channel`。

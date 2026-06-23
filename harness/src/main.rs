@@ -7,7 +7,18 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 
 fn main() {
     let mut args = std::env::args().skip(1);
-    let n: u32 = args.next().and_then(|s| s.parse().ok()).unwrap_or(500);
+    let first = args.next();
+    if first.as_deref() == Some("debug") {
+        for seed in 0..12u32 {
+            let t = play(seed, 5000);
+            println!(
+                "seed {seed:>2}: {:?} max_room={} steps={} build={:?}",
+                t.outcome, t.max_room, t.steps, t.final_snapshot.acquired
+            );
+        }
+        return;
+    }
+    let n: u32 = first.and_then(|s| s.parse().ok()).unwrap_or(500);
     let budget: usize = args.next().and_then(|s| s.parse().ok()).unwrap_or(5000);
 
     let rooms = room_count();

@@ -3,8 +3,8 @@
 
 // ── 法術表(view metadata;code 對齊 sim SPELL_ORDER)──
 const SPELLS = [
-  { code: 0, id: "bolt", name: "魔法彈", icon: "✨", target: "enemy" },
-  { code: 1, id: "push", name: "推", icon: "👐", target: "adjEnemy" },
+  { code: 0, id: "bolt", name: "魔法彈", icon: "✨", target: "enemy", baseline: true },
+  { code: 1, id: "push", name: "推", icon: "👐", target: "adjEnemy", baseline: true },
   { code: 2, id: "fire", name: "火球", icon: "🔥", target: "cell" },
   { code: 3, id: "heavy", name: "烈焰術", icon: "☄", target: "cell", channel: true },
   { code: 4, id: "oilflask", name: "澆油", icon: "🛢️", target: "cell" },
@@ -132,8 +132,9 @@ function renderChain() {
 function renderBar() {
   const bar = $("bar"); bar.innerHTML = "";
   const playable = state.status === ST.INPUT;
-  // 可用法術 = 基礎(bolt)+ 已撿
-  const codes = [0, ...state.acquired];
+  // 可用法術 = 基礎包(bolt + push)+ 已撿
+  const baseCodes = SPELLS.filter((s) => s.baseline).map((s) => s.code);
+  const codes = [...baseCodes, ...state.acquired];
   for (const code of codes) {
     const sp = SPELLS[code];
     const b = document.createElement("button");

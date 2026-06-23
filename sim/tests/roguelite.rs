@@ -65,7 +65,7 @@ fn gen_offers_only_pickable_and_unique() {
 #[test]
 fn apply_pick_adds_until_cap_then_needs_drop() {
     let mut run = RunState::new(1);
-    assert_eq!(apply_pick(&mut run, Spell::Push), PickResult::Done);
+    assert_eq!(apply_pick(&mut run, Spell::OilFlask), PickResult::Done);
     assert_eq!(apply_pick(&mut run, Spell::Fire), PickResult::Done);
     assert_eq!(apply_pick(&mut run, Spell::Hook), PickResult::Done);
     assert_eq!(run.acquired.len(), SPELL_CAP);
@@ -76,31 +76,31 @@ fn apply_pick_adds_until_cap_then_needs_drop() {
 #[test]
 fn apply_pick_upgrades_without_slot() {
     let mut run = RunState::new(1);
-    apply_pick(&mut run, Spell::Push); // tier 1
+    apply_pick(&mut run, Spell::OilFlask); // tier 1
     let before = run.acquired.len();
-    let r = apply_pick(&mut run, Spell::Push); // 再選同一張 → 升級
+    let r = apply_pick(&mut run, Spell::OilFlask); // 再選同一張 → 升級
     assert_eq!(r, PickResult::Done);
     assert_eq!(run.acquired.len(), before, "升級不占新槽");
-    assert_eq!(run.tiers.of("push"), 2, "應升到 ★★");
+    assert_eq!(run.tiers.of("oilflask"), 2, "應升到 ★★");
     // 升級不超過 max_tier。
-    apply_pick(&mut run, Spell::Push);
-    assert_eq!(run.tiers.of("push"), Spell::Push.max_tier());
-    assert!(matches!(run.op_log.last(), Some(Op::Upgrade { id: Spell::Push, .. })));
+    apply_pick(&mut run, Spell::OilFlask);
+    assert_eq!(run.tiers.of("oilflask"), Spell::OilFlask.max_tier());
+    assert!(matches!(run.op_log.last(), Some(Op::Upgrade { id: Spell::OilFlask, .. })));
 }
 
 #[test]
 fn apply_drop_replaces_and_clears_tier() {
     let mut run = RunState::new(1);
-    apply_pick(&mut run, Spell::Push);
+    apply_pick(&mut run, Spell::OilFlask);
     apply_pick(&mut run, Spell::Fire);
     apply_pick(&mut run, Spell::Hook);
-    apply_pick(&mut run, Spell::Push); // 把 push 升到 2
-    assert_eq!(run.tiers.of("push"), 2);
+    apply_pick(&mut run, Spell::OilFlask); // 把 push 升到 2
+    assert_eq!(run.tiers.of("oilflask"), 2);
     // 丟掉 push 換 haste。
-    apply_drop(&mut run, Spell::Haste, Spell::Push);
-    assert!(!run.acquired.contains(&Spell::Push));
+    apply_drop(&mut run, Spell::Haste, Spell::OilFlask);
+    assert!(!run.acquired.contains(&Spell::OilFlask));
     assert!(run.acquired.contains(&Spell::Haste));
-    assert_eq!(run.tiers.of("push"), 1, "丟掉的法術等級應清除(回預設 1)");
+    assert_eq!(run.tiers.of("oilflask"), 1, "丟掉的法術等級應清除(回預設 1)");
     assert_eq!(run.tiers.of("haste"), 1, "換上的新法術為 ★");
     assert_eq!(run.acquired.len(), SPELL_CAP, "仍維持滿欄");
 }

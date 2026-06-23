@@ -44,7 +44,7 @@ const DIRS8: [(i32, i32); 8] = [
 /// 推進危險格的「設局」:找一個敵人 E 與其相鄰的危險格 H(尖刺/火),
 /// 站位 P = E 在 H 對側的相鄰格;站上 P 推 E → E 撞進 H 秒殺。
 /// 已在 P → 立即推;否則走向最近的 P(路徑 ≤ 4 才值得繞,免得送頭)。
-fn try_push_kill(g: &GameState, mx: i32, my: i32, foes: &[&Entity]) -> Option<Action> {
+fn try_push_kill(g: &GameState, mx: i32, my: i32, foes: &[&Entity], allow_pursuit: bool) -> Option<Action> {
     let mut best_move: Option<((i32, i32), usize)> = None;
     for e in foes {
         if e.kind == Kind::Boss {
@@ -77,10 +77,13 @@ fn try_push_kill(g: &GameState, mx: i32, my: i32, foes: &[&Entity]) -> Option<Ac
             {
                 continue;
             }
-            if let Some(path) = find_path(g, mx, my, px, py) {
-                let l = path.len();
-                if l <= 4 && best_move.is_none_or(|(_, bl)| l < bl) {
-                    best_move = Some(((px, py), l));
+            // 走向設局位:只在「沒被貼身」時做(免得在亂戰中離開節奏送頭),且設局位很近(≤2 步)。
+            if allow_pursuit {
+                if let Some(path) = find_path(g, mx, my, px, py) {
+                    let l = path.len();
+                    if l <= 2 && best_move.is_none_or(|(_, bl)| l < bl) {
+                        best_move = Some(((px, py), l));
+                    }
                 }
             }
         }
@@ -144,9 +147,10 @@ pub fn choose_action(g: &GameState, run: &RunState) -> Action {
     }
 
     // ── 一般敵人 ──
-    // 推進危險格(環境擊殺):立即可推就推,否則走到「設局位」把敵人卡在你與尖刺/火之間。
+    // 推進危險格(環境擊殺):立即可推就推;沒被貼身時才走去「設局位」(亂戰中保持節奏)。
     if owns(Spell::Push) {
-        if let Some(a) = try_push_kill(g, mx, my, &foes) {
+        let threatened = foes.iter().any(|e| cheb(mx, my, e.x, e.y) == 1);
+        if let Some(a) = try_push_kill(g, mx, my, &foes, !threatened) {
             return a;
         }
     }
