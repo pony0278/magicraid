@@ -35,6 +35,7 @@ let wasm, mem; // wasm exports + helper
 let state = null;
 let selSpell = null; // 目前選取的法術(target 需瞄準時)
 let gameplayStarted = false;
+let anim = null; // 進行中的動畫(events→重建);null = 靜態
 
 const $ = (id) => document.getElementById(id);
 const cv = $("cv"), ctx = cv.getContext("2d");
@@ -46,6 +47,13 @@ function readJson(ptr) {
   return JSON.parse(new TextDecoder().decode(bytes));
 }
 function refresh() { state = readJson(wasm.mr_render()); }
+function readEvents() { return readJson(wasm.mr_events()); }
+// 取目前畫面上各實體的位置/狀態(id → {...}),供動畫補間 before→after。
+function entMap(st) {
+  const m = {};
+  for (const e of st.ents) m[e.id] = e;
+  return m;
+}
 
 async function boot() {
   // 用 arrayBuffer 路徑:不依賴伺服器把 .wasm 標成 application/wasm。
@@ -54,7 +62,7 @@ async function boot() {
   wasm = instance.exports;
   Poki.loadingFinished();
   newRun((Math.random() * 0xffffffff) >>> 0);
-  window.addEventListener("resize", draw);
+  window.addEventListener("resize", () => { if (!anim) drawStatic(); });
 }
 
 function newRun(seed) {
@@ -72,14 +80,49 @@ function firstInput() {
 
 // ── 套用一手 ──
 function doStep(act, x = 0, y = 0, spell = 0) {
+  if (anim) finishAnim(); // 連點:先把上一段動畫收尾
   firstInput();
+  const before = entMap(state); // 動畫起點(這手之前的位置/血量)
   wasm.mr_step(act, x, y, spell);
   const rejected = wasm.mr_rejected() === 1;
   selSpell = null;
-  refresh();
-  if (rejected) flash("✋ 那一手不行(超出射程/視線/沒目標)。");
-  else $("feedback").textContent = "";
-  render();
+  const events = readEvents();
+  refresh(); // state = 新狀態
+  if (rejected) {
+    flash("✋ 那一手不行(超出射程/視線/沒目標)。");
+    render();
+    return;
+  }
+  $("feedback").textContent = "";
+  startAnim(before, entMap(state), events);
+}
+
+// 開始一段動畫:實體 before→after 補間 + 命中閃光 + 死亡淡出 + 飄字。
+function startAnim(before, after, events) {
+  const dmg = {};
+  for (const e of events) if (e.t === "dmg") dmg[e.id] = (dmg[e.id] || 0) + e.amt;
+  anim = {
+    t0: performance.now(),
+    dur: 260,
+    before,
+    after,
+    dmgIds: new Set(Object.keys(dmg).map(Number)),
+    floats: Object.entries(dmg).map(([id, amt]) => ({ id: +id, amt })),
+  };
+  requestAnimationFrame(tick);
+}
+
+function finishAnim() {
+  anim = null;
+  render(); // 落定到最終狀態 + 更新面板
+}
+
+function tick(now) {
+  if (!anim) return;
+  const p = Math.min(1, (now - anim.t0) / anim.dur);
+  drawFrame(p);
+  if (p < 1) requestAnimationFrame(tick);
+  else finishAnim();
 }
 
 function flash(msg) { $("feedback").textContent = msg; }
@@ -98,6 +141,7 @@ function cellFromEvent(ev) {
 function onCanvasTap(ev) {
   ev.preventDefault();
   if (!state) return;
+  if (anim) { finishAnim(); return; } // 動畫中點一下 = 跳過
   if (state.status === ST.RELEASE) { doStep(4); return; } // 釋放蓄力:任意點擊
   if (state.status !== ST.INPUT) return;
   const { x, y } = cellFromEvent(ev);
@@ -116,7 +160,7 @@ function render() {
   renderChain();
   renderBar();
   renderOverlay();
-  draw();
+  drawStatic();
 }
 
 function renderChain() {
@@ -207,12 +251,8 @@ function fitCanvas() {
   cv.width = state.w * cell; cv.height = state.h * cell; cv._cell = cell;
 }
 
-function draw() {
-  if (!state) return;
-  fitCanvas();
-  const cell = cv._cell;
-  ctx.clearRect(0, 0, cv.width, cv.height);
-  // tiles
+// 地形/火/預告(永遠以最終狀態繪製)。
+function drawBackground(cell) {
   for (let y = 0; y < state.h; y++) for (let x = 0; x < state.w; x++) {
     const t = state.tiles[y][x];
     ctx.fillStyle = COLORS[t] || "#3b3157";
@@ -222,20 +262,69 @@ function draw() {
     if (t === TILE.WOOD || t === TILE.WOODBURN) { ctx.strokeStyle = "#0004"; ctx.strokeRect(x*cell+2, y*cell+2, cell-5, cell-5); }
     if (state.fire[y][x] > 0) { ctx.fillStyle = "rgba(255,122,60,.55)"; ctx.fillRect(x*cell, y*cell, cell-1, cell-1); glyph("🔥", x, y, cell, 0.6); }
   }
-  // boss 砸擊預告
   for (const [cx, cy] of state.slamCells) {
     ctx.fillStyle = "rgba(226,87,76,.4)";
     ctx.fillRect(cx * cell, cy * cell, cell - 1, cell - 1);
     ctx.strokeStyle = "#e2574c"; ctx.lineWidth = 2;
     ctx.strokeRect(cx*cell+1, cy*cell+1, cell-3, cell-3);
   }
-  // 選法術時提示可點(簡單:整盤可點;sim 會回絕非法)
-  // entities
-  for (const e of state.ents) {
-    glyph(KIND_ICON[e.k] || "?", e.x, e.y, cell, 0.62);
-    if (e.k !== "mage" || true) drawHp(e, cell);
-    if (e.ch) { ctx.strokeStyle = e.ready ? "#f5c84a" : "#74e0d4"; ctx.lineWidth = 2;
-      ctx.strokeRect(e.x*cell+2, e.y*cell+2, cell-5, cell-5); }
+}
+
+// 畫一隻實體(x,y 為格座標,可為小數以做補間;flash 0–1 命中閃光;alpha 死亡淡出)。
+function drawEntity(e, cell, alpha, flash) {
+  ctx.globalAlpha = alpha;
+  if (flash > 0) {
+    ctx.fillStyle = `rgba(255,90,80,${0.6 * flash})`;
+    ctx.fillRect(e.x * cell, e.y * cell, cell - 1, cell - 1);
+  }
+  glyph(KIND_ICON[e.k] || "?", e.x, e.y, cell, 0.62);
+  drawHp(e, cell);
+  if (e.ch) {
+    ctx.strokeStyle = e.ready ? "#f5c84a" : "#74e0d4"; ctx.lineWidth = 2;
+    ctx.strokeRect(e.x*cell+2, e.y*cell+2, cell-5, cell-5);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawStatic() {
+  if (!state) return;
+  fitCanvas();
+  const cell = cv._cell;
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  drawBackground(cell);
+  for (const e of state.ents) drawEntity(e, cell, 1, 0);
+}
+
+// 動畫幀:實體 before→after 補間;命中閃光;死亡(在 before 有、after 無)淡出;傷害飄字。
+function drawFrame(p) {
+  if (!state) return;
+  fitCanvas();
+  const cell = cv._cell;
+  const ease = 1 - (1 - p) * (1 - p);
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  drawBackground(cell);
+  const ids = new Set([...Object.keys(anim.before), ...Object.keys(anim.after)].map(Number));
+  for (const id of ids) {
+    const b = anim.before[id], a = anim.after[id];
+    const flash = anim.dmgIds.has(id) ? 1 - p : 0;
+    if (b && a) {
+      drawEntity({ ...a, x: b.x + (a.x - b.x) * ease, y: b.y + (a.y - b.y) * ease }, cell, 1, flash);
+    } else if (b) {
+      drawEntity({ ...b, hp: 0 }, cell, 1 - p, flash); // 死亡淡出
+    } else if (a) {
+      drawEntity(a, cell, p, 0); // 新生(罕見)
+    }
+  }
+  // 傷害飄字(往上飄、淡出)。
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.font = `${Math.floor(cell * 0.42)}px system-ui, sans-serif`;
+  for (const f of anim.floats) {
+    const src = anim.after[f.id] || anim.before[f.id];
+    if (!src) continue;
+    ctx.globalAlpha = 1 - p;
+    ctx.fillStyle = "#ffd0c0";
+    ctx.fillText(`-${f.amt}`, src.x * cell + cell / 2, src.y * cell + cell / 2 - p * cell * 0.9);
+    ctx.globalAlpha = 1;
   }
 }
 

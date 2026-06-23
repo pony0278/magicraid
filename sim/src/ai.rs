@@ -8,7 +8,7 @@
 use crate::config::{BOSS_SLAM, EYE_DMG, EYE_RANGE, IMP_DMG};
 use crate::damage::{deal_damage, StepCtx};
 use crate::events::Event;
-use crate::grid::{cheb, ent_index_at, los, slam_area, walkable};
+use crate::grid::{cheb, ent_index_at, first_unit_on_ray, los, slam_area, walkable};
 use crate::state::{GameState, Kind, Tile};
 
 fn mage_index(g: &GameState) -> usize {
@@ -82,8 +82,11 @@ pub fn enemy_act(g: &mut GameState, idx: usize, ctx: &mut StepCtx) {
         }
         Kind::Eye => {
             if cheb(ex, ey, mx, my) <= EYE_RANGE && los(g, ex, ey, mx, my) {
-                let m = mage_index(g);
-                deal_damage(g, m, EYE_DMG, ctx);
+                // 射線命中第一個單位:中間有小鬼會替法師擋下(身體當掩體,對稱於魔法彈)。
+                // 擋下的小鬼自己中彈(友軍誤傷)→ 湧現「躲在小鬼後」的戰術。
+                if let Some(victim) = first_unit_on_ray(g, ex, ey, mx, my) {
+                    deal_damage(g, victim, EYE_DMG, ctx);
+                }
             } else {
                 step_toward(g, idx, ctx);
             }

@@ -7,7 +7,7 @@
 
 use magicraid_sim::{
     apply_drop, apply_pick, gen_offers, init_room, project_chain, spells::pickable, step, Action,
-    GameState, Kind, PickResult, RunState, Spell, Status, Target, Tile,
+    Event, GameState, Kind, PickResult, RunState, Spell, Status, Target, Tile,
 };
 use std::cell::RefCell;
 
@@ -31,6 +31,7 @@ struct World {
     run: RunState,
     status: Status,
     rejected: bool,
+    last_events: Vec<Event>,
 }
 
 thread_local! {
@@ -91,6 +92,7 @@ pub extern "C" fn mr_new(seed: u32) {
             run,
             status: Status::AwaitingInput,
             rejected: false,
+            last_events: Vec::new(),
         });
     });
 }
@@ -117,6 +119,7 @@ pub extern "C" fn mr_step(act: u32, x: i32, y: i32, spell: u32) -> u32 {
         let r = step(&mut world.g, &mut world.run, action);
         world.rejected = r.rejected.is_some();
         world.status = r.status;
+        world.last_events = r.events;
         status_code(world.status)
     })
 }
@@ -192,6 +195,50 @@ pub extern "C" fn mr_offers() -> *const u8 {
         let codes: Vec<String> = offers.iter().map(|&s| spell_code(s).to_string()).collect();
         publish(format!("[{}]", codes.join(",")))
     })
+}
+
+/// 上一手累積的事件(JSON 陣列),供殼端重建動畫(命中閃光、移動、死亡…)。
+#[no_mangle]
+pub extern "C" fn mr_events() -> *const u8 {
+    WORLD.with(|w| {
+        let w = w.borrow();
+        match w.as_ref() {
+            Some(world) => publish(events_json(&world.last_events)),
+            None => publish("[]".into()),
+        }
+    })
+}
+
+fn events_json(evs: &[Event]) -> String {
+    let mut s = String::from("[");
+    for (i, e) in evs.iter().enumerate() {
+        if i > 0 {
+            s.push(',');
+        }
+        match e {
+            Event::Damaged { id, amt } => {
+                s.push_str(&format!("{{\"t\":\"dmg\",\"id\":{id},\"amt\":{amt}}}"))
+            }
+            Event::Died { id } => s.push_str(&format!("{{\"t\":\"die\",\"id\":{id}}}")),
+            Event::Moved { id, from, to } => s.push_str(&format!(
+                "{{\"t\":\"mv\",\"id\":{id},\"fx\":{},\"fy\":{},\"tx\":{},\"ty\":{}}}",
+                from.0, from.1, to.0, to.1
+            )),
+            Event::SpellCast { id, spell } => {
+                s.push_str(&format!("{{\"t\":\"cast\",\"id\":{id},\"s\":\"{spell}\"}}"))
+            }
+            Event::ChannelInterrupted { id } => {
+                s.push_str(&format!("{{\"t\":\"intr\",\"id\":{id}}}"))
+            }
+            Event::Stunned { id } => s.push_str(&format!("{{\"t\":\"stun\",\"id\":{id}}}")),
+            Event::HasteGained { id } => s.push_str(&format!("{{\"t\":\"haste\",\"id\":{id}}}")),
+            Event::Healed { id, amt } => {
+                s.push_str(&format!("{{\"t\":\"heal\",\"id\":{id},\"amt\":{amt}}}"))
+            }
+        }
+    }
+    s.push(']');
+    s
 }
 
 fn render_json(world: &World) -> String {

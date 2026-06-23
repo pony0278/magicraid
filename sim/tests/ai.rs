@@ -1,7 +1,7 @@
 //! 敵人 AI 正確性 + 確定性:小鬼貼臉/走位、符文眼視線射擊、魔像砸擊過熱循環。
 
 use magicraid_sim::ai::enemy_act;
-use magicraid_sim::config::{BOSS_SLAM, EYE_DMG, IMP_DMG, MAGE_HP};
+use magicraid_sim::config::{BOSS_SLAM, EYE_DMG, IMP_DMG, IMP_HP, MAGE_HP};
 use magicraid_sim::damage::StepCtx;
 use magicraid_sim::grid::{cheb, slam_area};
 use magicraid_sim::state::{Channel, Entity, GameState, Kind, Tile};
@@ -97,6 +97,18 @@ fn eye_shoots_with_line_of_sight() {
     let i = idx_of(&g, Kind::Eye);
     enemy_act(&mut g, i, &mut ctx);
     assert_eq!(g.mage().hp, MAGE_HP - EYE_DMG, "有視線應射擊");
+}
+
+#[test]
+fn eye_shot_blocked_by_imp_in_front() {
+    // 法師(0,0)、小鬼(2,0)、符文眼(3,0):眼射法師 → 小鬼擋下射線、自己中彈,法師沒事。
+    let mut g = make(&["@.oe"]);
+    let mut ctx = StepCtx::new();
+    let eye = g.entities.iter().position(|e| e.kind == Kind::Eye).unwrap();
+    enemy_act(&mut g, eye, &mut ctx);
+    assert_eq!(g.mage().hp, MAGE_HP, "中間的小鬼擋下射線,法師沒事");
+    let imp = g.entities.iter().find(|e| e.kind == Kind::Imp).unwrap();
+    assert_eq!(imp.hp, IMP_HP - EYE_DMG, "擋彈的小鬼自己中彈(友軍誤傷)");
 }
 
 #[test]
