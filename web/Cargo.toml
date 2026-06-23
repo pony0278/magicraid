@@ -1,0 +1,11 @@
+[package]
+name = "magicraid-web"
+version = "0.0.1"
+edition = "2021"
+description = "魔法基地突襲 — WASM 客戶端綁定:同一份 sim 編成 wasm,以手寫 C-ABI 餵 web 殼(免 wasm-bindgen)。"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+magicraid-sim = { path = "../sim" }

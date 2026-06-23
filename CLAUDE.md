@@ -12,8 +12,12 @@
 ```
 docs/        所有設計／技術定案文件(見 docs/README.md 的閱讀順序與關係圖)
 prototype/   demo1.html — 已驗證好玩的 JS 原型 = Rust port 的規格基準
-sim/         確定性 Rust sim 核(headless,WASM + native 共用一份)← 開發中
+sim/         確定性 Rust sim 核(headless,WASM + native 共用一份)✅ B0 完成
+harness/     native 工具:baseline agent + 批次種子驗確定性/可解性(階段 B 閘門)
+web/         WASM 客戶端綁定 + 輕量 DOM/Canvas 殼(階段 C,開發中)
 ```
+
+workspace 三 crate(`sim` / `harness` / `web`)+ `prototype`;`cargo test --workspace` 全綠。
 
 ## 文件地圖(真相來源)
 
@@ -58,11 +62,12 @@ sim/src/
 
 ## 當前焦點
 
-階段 B(headless Rust sim)。**B0 A 區 + `lib::step` 全契約已 port 完成**:
-`step(state, action) → {events, status}` + `project_chain`,全模組逐字對齊 `prototype/demo1.html`。
-`cargo test` 71 綠(含每模組 determinism 測 + 端到端 step 回放 bit 一致)。
+**階段 B 完成、階段 C 開工。**
+- ✅ 階段 B:sim 核全 port + `lib::step` 全契約 + harness/baseline agent。
+  階段 B 閘門達成:同種子 bit 一致(harness 500 場 0 漂移)、房 0–5(含 boss)皆可解。
+- 🟡 階段 C(`web/`):同一份 sim 編 WASM(88KB)、手寫 C-ABI、輕量 Canvas 殼可玩。
 
-下一步(階段 B 後半,見 `docs/05-b0-migration.md` §B-2/§B-3):
-- harness(native 批次跑種子)+ baseline 參考 agent(每房可解性檢查)。
-- **JS↔Rust 對拍**:同 `(seed, op 序列)` 逐 event 比對抓漂移。
-- 之後接階段 C(wasm-bindgen 包 sim,接輕量 web 殼)。
+階段 C 待辦(見 `web/README.md`):events→動畫、16:9 縮放打磨、丟牌 UI、
+Poki 廣告點、**JS↔Rust 對拍**(`prototype/demo1.html` JS sim vs WASM,逐 event 抓漂移)。
+
+WASM 構建:`web/build.sh`(需 `rustup target add wasm32-unknown-unknown`)。試玩:`cd web/www && python3 -m http.server`。

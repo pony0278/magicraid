@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>魔法基地突襲 — Demo(Rust sim · WASM)</title>
+<!-- Poki 約束:無外部請求。字型用系統字族,不引 Google Fonts。 -->
+<style>
+  :root{
+    --bg:#221a33;--panel:#2e2545;--panel2:#382c52;
+    --floor:#3b3157;--wall:#15101f;--wood:#5a4326;--oil:#3a4a35;--spike:#4a2f3a;
+    --rune:#3a3a6a;--ink:#efe7d2;--muted:#a99fc4;
+    --cyan:#74e0d4;--gold:#f5c84a;--orange:#ff9a52;--red:#e2574c;--line:#473a66;
+    --fire:#ff7a3c;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+    font-family:system-ui,-apple-system,"Noto Sans CJK TC","PingFang TC","Microsoft JhengHei",sans-serif;
+    -webkit-font-smoothing:antialiased;overflow:hidden;touch-action:manipulation}
+  #app{display:flex;flex-direction:column;height:100%;max-width:900px;margin:0 auto;padding:8px}
+  header{display:flex;align-items:center;gap:10px;padding:4px 6px}
+  h1{font-size:16px;font-weight:600;margin:0;flex:1}
+  #hud{font-size:13px;color:var(--muted)}
+  #chain{display:flex;gap:4px;padding:4px 6px;min-height:26px;flex-wrap:wrap}
+  .slot{font-size:13px;padding:2px 7px;border-radius:8px;background:var(--panel2);border:1px solid var(--line)}
+  .slot.mage{background:#2b3a5a;color:var(--cyan)}
+  .slot.rel{outline:2px solid var(--gold)}
+  #stage{flex:1;display:flex;align-items:center;justify-content:center;min-height:0;position:relative}
+  canvas{background:#1a1428;border-radius:12px;max-width:100%;max-height:100%;touch-action:none}
+  #bar{display:flex;flex-wrap:wrap;gap:6px;padding:6px 4px}
+  button.act{font:inherit;font-size:15px;color:var(--ink);background:var(--panel2);
+    border:1px solid var(--line);border-radius:10px;padding:9px 12px;min-height:46px;min-width:46px;cursor:pointer}
+  button.act:active{transform:translateY(1px)}
+  button.act.sel{outline:2px solid var(--cyan);background:#2b3a5a}
+  button.act:disabled{opacity:.4}
+  .star{color:var(--gold)}
+  #feedback{min-height:20px;font-size:13px;color:var(--orange);padding:0 6px}
+  #overlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
+    background:rgba(15,11,25,.82);border-radius:12px;padding:20px;text-align:center}
+  #overlay.on{display:flex}
+  #ovCard{max-width:340px}
+  #ovTitle{font-size:20px;font-weight:600;margin-bottom:6px}
+  #ovText{font-size:14px;color:var(--muted);margin-bottom:14px}
+  #ovBtns{display:flex;flex-direction:column;gap:8px}
+  #ovBtns button{font:inherit;font-size:15px;color:var(--ink);background:var(--panel2);
+    border:1px solid var(--line);border-radius:10px;padding:12px;cursor:pointer;text-align:left}
+  #ovBtns button:active{transform:translateY(1px)}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>魔法基地突襲 <span style="color:var(--muted);font-weight:400">· Rust sim / WASM</span></h1>
+    <div id="hud"></div>
+  </header>
+  <div id="chain"></div>
+  <div id="stage">
+    <canvas id="cv"></canvas>
+    <div id="overlay"><div id="ovCard">
+      <div id="ovTitle"></div><div id="ovText"></div><div id="ovBtns"></div>
+    </div></div>
+  </div>
+  <div id="feedback"></div>
+  <div id="bar"></div>
+</div>
+<script src="main.js"></script>
+</body>
+</html>

@@ -1,5 +1,11 @@
 # Workspace 根:sim(確定性核,lib + 未來 wasm)+ harness(native 工具,跑批次種子驗證)。
 # harness 與未來客戶端跑「同一份 sim」(護欄 A);harness 只是外圍工具,不擁有 sim 邏輯。
 [workspace]
-members = ["sim", "harness"]
+members = ["sim", "harness", "web"]
 resolver = "2"
+
+# WASM 客戶端體積/效能(Poki 初始下載 ≤ 8MB)。只影響 release 構建。
+[profile.release]
+opt-level = "z"
+lto = true
+panic = "abort"
