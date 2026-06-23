@@ -43,6 +43,12 @@ pub const IMP_HP: i32 = 5;
 pub const EYE_HP: i32 = 4;
 pub const BOSS_HP: i32 = 24;
 
+// ── 位移 / 危險格(CFG.push / spikeDmg,行 159–160)。 ──
+/// 推/震/勾撞上阻擋時的撞擊傷害(CFG.push.crash)。
+pub const PUSH_CRASH: i32 = 1;
+/// 踩到/被推上尖刺格的傷害(CFG.spikeDmg)。
+pub const SPIKE_DMG: i32 = 6;
+
 // ── 火/地形(CFG.fire / woodBurnTicks,行 157/167)。 ──
 /// 火格起火後的持續 tick 數(CFG.fire.dur)。
 pub const FIRE_DUR: i32 = 2;

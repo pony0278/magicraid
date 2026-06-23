@@ -49,3 +49,33 @@ pub fn blocks_sight(g: &GameState, x: i32, y: i32) -> bool {
 pub fn walkable(g: &GameState, x: i32, y: i32) -> bool {
     in_bounds(g, x, y) && !blocks_move(g, x, y)
 }
+
+/// 半進位整數除法:`round(num/den)`,den>0、num≥0(線段內插點座標恆非負)。
+///
+/// 對應 JS `Math.round`(.5 向 +∞)。`round(n/d) = floor(n/d + 1/2) = (2n+d)/(2d)`。
+#[inline]
+fn round_div(num: i32, den: i32) -> i32 {
+    (2 * num + den) / (2 * den)
+}
+
+/// 視線(LoS):`(ax,ay)`→`(bx,by)` 之間有無阻擋。對應 JS `los`(行 249–253)。
+///
+/// **整數化(B0 §D-2)**:JS 用 `Math.round` 取樣 `steps-1` 個內插點,float 在邊界會漂。
+/// 改用整數半進位 `round_div` 取**完全相同**的取樣格 → 去 float 且與 JS 行為一致(對拍不漂)。
+/// 內插點恆落在兩端點的包圍盒內,故必在界內,直接讀 tile 安全。
+pub fn los(g: &GameState, ax: i32, ay: i32, bx: i32, by: i32) -> bool {
+    let dx = bx - ax;
+    let dy = by - ay;
+    let steps = dx.abs().max(dy.abs());
+    if steps == 0 {
+        return true;
+    }
+    for i in 1..steps {
+        let x = round_div(ax * steps + dx * i, steps);
+        let y = round_div(ay * steps + dy * i, steps);
+        if blocks_sight(g, x, y) {
+            return false;
+        }
+    }
+    true
+}

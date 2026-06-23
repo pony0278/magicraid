@@ -5,6 +5,27 @@
 
 use crate::events::Event;
 use crate::state::{GameState, Kind};
+use std::collections::BTreeMap;
+
+/// 已撿法術的等級表(對應 JS 全域 `tier` + `tierOf`,行 198–199)。
+///
+/// 1 = 基礎,2 = ★★。`roguelite.rs` 之後負責填;在那之前 `of` 一律回 1(★★ 效果休眠)。
+/// 用 `BTreeMap`(只查詢、不靠迭代序),避免 HashMap 迭代序風險(B0 §D-6)。
+#[derive(Clone, Debug, Default)]
+pub struct TierTable {
+    inner: BTreeMap<&'static str, u8>,
+}
+
+impl TierTable {
+    /// 查某法術的等級;未撿/未升 → 1。對應 JS `tierOf`。
+    pub fn of(&self, id: &str) -> u8 {
+        self.inner.get(id).copied().unwrap_or(1)
+    }
+    /// 設定等級(roguelite 升級用;測試也用它注入 ★★)。
+    pub fn set(&mut self, id: &'static str, lvl: u8) {
+        self.inner.insert(id, lvl);
+    }
+}
 
 /// 一次 `step()` 內的區域可變狀態(B0 §G-6:這些**不進持久 GameState**)。
 ///
@@ -14,9 +35,8 @@ pub struct StepCtx {
     pub events: Vec<Event>,
     /// auto-walk 期間「被打過就煞車」旗標(對應 JS `mageHurt`,行 261)。
     pub mage_hurt: bool,
-    /// roguelite `tierOf("haste")`。先佔位(預設 1),`roguelite.rs` 之後餵入;
-    /// ≥2 時才有「擊殺續一手」滾雪球(對應 JS 行 266)。
-    pub haste_tier: u8,
+    /// 法術等級表(★★ 效果的閘門:擊殺續加速、撞暈、勾索定身、烈焰震退…)。
+    pub tiers: TierTable,
 }
 
 impl StepCtx {
@@ -24,7 +44,7 @@ impl StepCtx {
         StepCtx {
             events: Vec::new(),
             mage_hurt: false,
-            haste_tier: 1,
+            tiers: TierTable::default(),
         }
     }
 }
@@ -68,7 +88,7 @@ pub fn deal_damage(g: &mut GameState, idx: usize, mut amt: i32, ctx: &mut StepCt
         }
         ctx.events.push(Event::Died { id });
         // 加速★★:擊殺當下若法師仍在加速,續一手(滾雪球)。需用擊殺當下的法師狀態。
-        if ctx.haste_tier >= 2 {
+        if ctx.tiers.of("haste") >= 2 {
             let mage = g.mage_mut();
             if mage.haste_turns > 0 {
                 mage.haste_turns += 1;
