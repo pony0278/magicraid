@@ -257,3 +257,22 @@ fn repro_diagonal_push_open_field() {
     do_push(&mut g, i, &mut ctx);
     assert_eq!((ent(&g, i).x, ent(&g, i).y), (4, 2), "斜推左上應移到 (4,2)");
 }
+
+#[test]
+fn push_all_eight_directions_move() {
+    // 法師置中,敵人放在 8 個鄰格,推 → 各自往外移一格。證明四斜角與四正向都會動。
+    for (dx, dy) in [(-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)] {
+        let mut g = make(&[".......", ".......", ".......", ".......", ".......", ".......", "......."]);
+        g.entities.push(Entity::new(0, Kind::Mage, 3, 3));
+        g.entities.push(Entity::new(1, Kind::Imp, 3 + dx, 3 + dy));
+        g.entities.sort_by_key(|e| e.id);
+        let mut ctx = StepCtx::new();
+        let i = imp_idx(&g);
+        do_push(&mut g, i, &mut ctx);
+        assert_eq!(
+            (ent(&g, i).x, ent(&g, i).y),
+            (3 + 2 * dx, 3 + 2 * dy),
+            "方向 ({dx},{dy}) 應把敵人推到外一格"
+        );
+    }
+}
