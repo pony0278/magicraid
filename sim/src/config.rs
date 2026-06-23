@@ -42,3 +42,11 @@ pub const HASTE_GRANT: u32 = 4; // 加速持續手數(CFG.hasteGrant)
 pub const IMP_HP: i32 = 5;
 pub const EYE_HP: i32 = 4;
 pub const BOSS_HP: i32 = 24;
+
+// ── 火/地形(CFG.fire / woodBurnTicks,行 157/167)。 ──
+/// 火格起火後的持續 tick 數(CFG.fire.dur)。
+pub const FIRE_DUR: i32 = 2;
+/// 站在火格/被點燃時每次的 DoT 傷害(CFG.fire.dot)。
+pub const FIRE_DOT: i32 = 3;
+/// 木牆被點燃後「燃燒中」維持幾 tick 才崩塌成火格(CFG.woodBurnTicks)。
+pub const WOOD_BURN_TICKS: i32 = 1;

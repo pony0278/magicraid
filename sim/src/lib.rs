@@ -10,14 +10,19 @@
 //!
 //! ## 目前進度(階段 B 骨架)
 //! - ✅ `config` / `state` / `events` / `time_chain`:時間鏈與確定性地基已可驗。
+//! - ✅ `grid` / `damage` / `terrain`:格子謂詞、傷害+event、火油木牆 CA(確定性已驗)。
 //! - ⏳ 待補(對齊 docs/05-b0-migration.md A 區):
-//!   `grid` / `damage` / `terrain` / `spells` / `movement` / `ai` / `roguelite`,
+//!   `spells` / `movement` / `ai` / `roguelite`,
 //!   以及 `lib::step` 全契約與 `project_chain` 完整前瞻。
 
 pub mod config;
+pub mod damage;
 pub mod events;
+pub mod grid;
 pub mod state;
+pub mod terrain;
 pub mod time_chain;
 
+pub use damage::StepCtx;
 pub use events::{Event, Status};
 pub use state::{Channel, Entity, GameState, Kind, Tile};
