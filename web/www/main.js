@@ -49,6 +49,7 @@ const Poki = (() => {
 let wasm, mem; // wasm exports + helper
 let state = null;
 let selSpell = null; // 目前選取的法術(target 需瞄準時)
+let pending = null; // 觸控預覽:第一次點的瞄準格 {x,y};點同格才提交(防誤觸)
 let gameplayStarted = false;
 let anim = null; // 進行中的動畫(events→重建);null = 靜態
 
@@ -83,6 +84,7 @@ async function boot() {
 function newRun(seed) {
   wasm.mr_new(seed >>> 0);
   selSpell = null;
+  pending = null;
   gameplayStarted = false;
   refresh();
   render();
@@ -96,6 +98,7 @@ function firstInput() {
 // ── 套用一手 ──
 function doStep(act, x = 0, y = 0, spell = 0) {
   if (anim) finishAnim(); // 連點:先把上一段動畫收尾
+  pending = null; // 提交即清掉瞄準預覽
   firstInput();
   const before = entMap(state); // 動畫起點(這手之前的位置/血量)
   const fireBefore = state.fire.map((r) => r.slice()); // 火蔓延動畫:step 前的火格快照
@@ -260,18 +263,24 @@ function cellFromEvent(ev) {
   return { x, y };
 }
 
+// 觸控預覽→確認:第一次點 = 設瞄準(畫高亮 + 虛線),點同格 = 提交,點別格 = 改目標。
+// 回合制每手流時間,點錯一格白送一拳 → 確認步驟擋誤觸(對齊 docs/02 I-go-you-go)。
 function onCanvasTap(ev) {
   ev.preventDefault();
   if (!state) return;
   if (anim) { finishAnim(); return; } // 動畫中點一下 = 跳過
-  if (state.status === ST.RELEASE) { doStep(4); return; } // 釋放蓄力:任意點擊
+  if (state.status === ST.RELEASE) { pending = null; doStep(4); return; } // 釋放蓄力:任意點擊
   if (state.status !== ST.INPUT) return;
   const { x, y } = cellFromEvent(ev);
-  if (x < 0 || y < 0 || x >= state.w || y >= state.h) return;
-  if (selSpell !== null) {
-    doStep(3, x, y, selSpell); // 施法瞄準
+  if (x < 0 || y < 0 || x >= state.w || y >= state.h) { pending = null; drawStatic(); return; }
+  if (pending && pending.x === x && pending.y === y) {
+    const p = pending; pending = null;
+    if (selSpell !== null) doStep(3, p.x, p.y, selSpell); // 施法
+    else doStep(2, p.x, p.y, 0);                          // 移動
   } else {
-    doStep(2, x, y, 0); // 移動
+    pending = { x, y };
+    flash(selSpell !== null ? "再點一次確認施法 ✓(點別處改目標)" : "再點一次確認移動 ✓(點別處改目標)");
+    drawStatic();
   }
 }
 cv.addEventListener("click", onCanvasTap);
@@ -312,8 +321,10 @@ function renderBar() {
       firstInput();
       if (sp.target === "self") { doStep(3, 0, 0, code); return; }
       selSpell = selSpell === code ? null : code;
-      flash(selSpell !== null ? `已選「${sp.name}」— 點目標。` : "");
+      pending = null; // 換法術 → 清掉舊瞄準
+      flash(selSpell !== null ? `已選「${sp.name}」— 點目標瞄準、再點一次確認。` : "");
       renderBar();
+      drawStatic();
     };
     bar.appendChild(b);
   }
@@ -423,6 +434,23 @@ function drawStatic() {
   ctx.clearRect(0, 0, cv.width, cv.height);
   drawBackground(cell);
   for (const e of state.ents) drawEntity(e, cell, 1, 0);
+  drawAim(cell);
+}
+
+// 觸控瞄準預覽:法師→目標的虛線 + 目標格高亮(純指示;合法性由 sim 在提交時裁決)。
+function drawAim(cell) {
+  if (!pending || !state) return;
+  const { x, y } = pending;
+  const m = state.ents.find((e) => e.k === "mage");
+  if (m) {
+    ctx.strokeStyle = "rgba(116,224,212,.5)"; ctx.lineWidth = 2; ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.moveTo(m.x * cell + cell / 2, m.y * cell + cell / 2);
+    ctx.lineTo(x * cell + cell / 2, y * cell + cell / 2);
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+  ctx.fillStyle = "rgba(116,224,212,.18)"; ctx.fillRect(x * cell, y * cell, cell - 1, cell - 1);
+  ctx.strokeStyle = "#74e0d4"; ctx.lineWidth = 2.5; ctx.strokeRect(x * cell + 2, y * cell + 2, cell - 5, cell - 5);
 }
 
 // 動畫幀(el = 自 tStart 起的毫秒):畫進行中的 seg(移動補間 / 閃光 + 飄字 / 死亡淡出),

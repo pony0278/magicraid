@@ -42,6 +42,23 @@
     background:rgba(15,11,25,.82);border-radius:12px;padding:20px;text-align:center}
   #overlay.on{display:flex}
   #ovCard{max-width:340px}
+  /* 矮螢幕(手機直/橫):收起 dev log、壓縮邊框,把垂直空間讓給棋盤(往 16:9 滿版靠)。 */
+  @media (max-height:680px){
+    #app{padding:4px}
+    header{padding:2px 6px} h1{font-size:14px}
+    #chain{padding:2px 6px;min-height:22px}
+    #feedback{min-height:14px}
+    #log{display:none}
+  }
+  /* 橫向手機:動作列移到棋盤右側,棋盤吃滿高度。 */
+  @media (orientation:landscape) and (max-height:560px){
+    #app{flex-flow:row wrap;align-items:stretch;max-width:none;gap:4px}
+    header{flex:1 1 100%;order:0}
+    #chain{flex:1 1 100%;order:1}
+    #stage{flex:1 1 0;order:2;min-width:0}
+    #bar{flex:0 0 168px;order:3;flex-direction:column;align-content:flex-start;overflow-y:auto}
+    #feedback{flex:1 1 100%;order:4}
+  }
   #ovTitle{font-size:20px;font-weight:600;margin-bottom:6px}
   #ovText{font-size:14px;color:var(--muted);margin-bottom:14px}
   #ovBtns{display:flex;flex-direction:column;gap:8px}
