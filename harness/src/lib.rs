@@ -7,8 +7,8 @@ use magicraid_sim::grid::{cheb, ent_index_at, in_bounds, walkable};
 use magicraid_sim::movement::find_path;
 use magicraid_sim::spells::validate;
 use magicraid_sim::{
-    apply_drop, apply_pick, config, gen_offers, init_room, step, Action, Entity, GameState, Kind,
-    PickResult, RunState, Spell, Status, Target, Tile,
+    apply_drop, apply_pick, config, gen_offers, init_base, init_room, step, Action, Entity,
+    GameState, Kind, PickResult, RunState, Spell, Status, Target, Tile,
 };
 
 // ─────────────────────────── baseline agent ───────────────────────────
@@ -339,6 +339,44 @@ pub fn replay(seed: u32, ops: &[RunOp]) -> (Status, Snapshot) {
 /// 總房數(= ROOMS 長度)。
 pub fn room_count() -> usize {
     config::ROOMS.len()
+}
+
+// ─────────────────────────── Demo 2:bot 試打 ───────────────────────────
+
+/// 試打結果:`RunComplete` = bot 攻破(到核心/清場),`Defeat` = 基地守住,其餘 = 超預算(疑似無解/太硬)。
+pub struct RaidResult {
+    pub outcome: Status,
+    pub steps: usize,
+}
+
+/// baseline agent 突襲一座玩家基地(Demo 2 §3「確定性 bot 試打」)。
+/// `acquired` = 突襲者帶的撿取法術(基礎包 bolt/push 永遠有;勾選火球/勾索等威脅牌測防守 robust)。
+/// 回報「幾手攻破 / 守住 / 超預算」,給編輯器即時「公平又難」回饋。
+pub fn bot_raid<S: AsRef<str>>(rows: &[S], acquired: &[Spell], budget: usize) -> RaidResult {
+    let mut g = init_base(rows);
+    let mut run = RunState::new(0);
+    run.acquired = acquired.to_vec();
+    let mut status = Status::AwaitingInput;
+    let mut steps = 0usize;
+    loop {
+        match status {
+            Status::AwaitingInput | Status::AwaitingRelease => {
+                let a = if status == Status::AwaitingRelease {
+                    Action::Wait // 觸發釋放
+                } else {
+                    choose_action(&g, &run)
+                };
+                status = step(&mut g, &mut run, a).status;
+                steps += 1;
+                if steps >= budget {
+                    break;
+                }
+            }
+            // base-raid 不會給 PickOffered(有核心);RunComplete=攻破、Defeat=守住。
+            _ => break,
+        }
+    }
+    RaidResult { outcome: status, steps }
 }
 
 // ─────────────────────────── JS↔Rust 對拍 trace ───────────────────────────
