@@ -580,7 +580,18 @@ const PALETTE = [
 // 突襲者可帶的威脅牌(基礎包 bolt/push 永遠有);bit = sim SPELL code。測「我的防守扛得住嗎」。
 const LOADOUT = [{ bit: 1 << 2, name: "Fire" }, { bit: 1 << 5, name: "Hook" }, { bit: 1 << 6, name: "Haste" }];
 const BASE_KEY = "magicraid_base_v1";
+// 放置預算:擋「填滿地圖 → 無解」。成本是佔位,playtest 再轉。出生/核心/地板免費;邊界鎖牆不計。
+const COST = { "#": 1, "W": 1, "~": 1, "s": 2, "o": 3, "e": 3, "@": 0, "C": 0, ".": 0 };
+const BUDGET = 30;
 let baseGrid = null, paintChar = "#", loadoutMask = 0;
+
+function usedBudget() {
+  let n = 0;
+  for (let y = 1; y < baseGrid.length - 1; y++)
+    for (let x = 1; x < baseGrid[y].length - 1; x++) n += COST[baseGrid[y][x]] || 0;
+  return n;
+}
+function updateEditorHud() { $("hud").textContent = `Base Editor · 💰 ${usedBudget()}/${BUDGET}`; }
 
 function enterEditor() {
   mode = "editor";
@@ -608,7 +619,7 @@ function validateBase() {
 
 // ── 編輯器渲染 ──
 function renderEditor() {
-  $("hud").textContent = "Base Editor 🏰";
+  updateEditorHud();
   $("chain").innerHTML = "";
   $("overlay").classList.remove("on");
   drawEditorStatic();
@@ -638,13 +649,14 @@ function renderEditorBar() {
   for (const p of PALETTE) {
     const b = document.createElement("button");
     b.className = "act" + (paintChar === p.ch ? " sel" : "");
-    b.innerHTML = p.icon; b.title = p.name;
+    b.innerHTML = COST[p.ch] ? `${p.icon}<sub style="font-size:9px;color:var(--gold)">${COST[p.ch]}</sub>` : p.icon;
+    b.title = `${p.name}${COST[p.ch] ? ` · ${COST[p.ch]} pts` : ""}`;
     b.onclick = () => { paintChar = p.ch; renderEditorBar(); };
     bar.appendChild(b);
   }
   bar.appendChild(mkBtn("🤖 Bot test", true, botTest));
   bar.appendChild(mkBtn("🎮 Play test", true, () => { if (validateBase()) startRaid(); }));
-  bar.appendChild(mkBtn("🗑 Reset", true, () => { baseGrid = DEFAULT_BASE.map((r) => r.split("")); saveBase(); drawEditorStatic(); }));
+  bar.appendChild(mkBtn("🗑 Reset", true, () => { baseGrid = DEFAULT_BASE.map((r) => r.split("")); saveBase(); drawEditorStatic(); updateEditorHud(); }));
   for (const l of LOADOUT) {
     const on = (loadoutMask & l.bit) !== 0;
     bar.appendChild(mkBtn(`${on ? "☑" : "☐"} ${l.name}`, true, () => { loadoutMask ^= l.bit; renderEditorBar(); }));
@@ -656,12 +668,19 @@ function editorTap(ev) {
   const h = baseGrid.length, w = baseGrid[0].length;
   if (x < 0 || y < 0 || x >= w || y >= h) return;
   if (x === 0 || y === 0 || x === w - 1 || y === h - 1) return; // 邊界牆鎖死,不畫開放邊
+  // 預算檢查:換上新格的成本差;超預算就擋(防填滿地圖)。
+  const delta = (COST[paintChar] || 0) - (COST[baseGrid[y][x]] || 0);
+  if (usedBudget() + delta > BUDGET) {
+    flash(`Out of budget (${usedBudget()}/${BUDGET}) — erase something first.`);
+    return;
+  }
   if (paintChar === "@" || paintChar === "C") { // 出生/核心唯一:先清舊的
     for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) if (baseGrid[yy][xx] === paintChar) baseGrid[yy][xx] = ".";
   }
   baseGrid[y][x] = paintChar;
   saveBase();
   drawEditorStatic();
+  updateEditorHud();
 }
 
 // ── 試打 ──
