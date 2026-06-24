@@ -23,6 +23,7 @@
 | 05 | [B0 遷移清單(engine vs view)](./05-b0-migration.md) | 把已驗證的 `demo1.html` 拆成 sim 核 vs view,逐項給 port 拆法 + 確定性風險 | port 成 Rust sim 的施工清單 |
 | 06 | [Demo 階段計畫](./06-demo-roadmap.md) | Demo 0 → 5 的里程碑與過關標準 | 可追進度的產品閘門 |
 | 07 | [專案進度待辦(master backlog)](./07-master-backlog.md) | 跨設計／技術／工程的單一追蹤表 | 當前焦點與下一步 |
+| 08 | [Demo 2 MVP:基地編輯器 + 防守](./08-demo2-base-editor.md) | 出題側(蓋基地+守)的 MVP 設計定案 + 施工清單;離線、編輯器 + bot 試打 | Demo 2 開工規格 |
 
 ## 文件關係(互相參照)
 
