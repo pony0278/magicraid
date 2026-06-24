@@ -9,3 +9,4 @@ crate-type = ["cdylib"]
 
 [dependencies]
 magicraid-sim = { path = "../sim" }
+magicraid-harness = { path = "../harness" } # Demo 2 bot 試打:複用 baseline agent(純 sim 依賴,可編 wasm)

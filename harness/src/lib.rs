@@ -358,22 +358,17 @@ pub fn bot_raid<S: AsRef<str>>(rows: &[S], acquired: &[Spell], budget: usize) ->
     run.acquired = acquired.to_vec();
     let mut status = Status::AwaitingInput;
     let mut steps = 0usize;
-    loop {
-        match status {
-            Status::AwaitingInput | Status::AwaitingRelease => {
-                let a = if status == Status::AwaitingRelease {
-                    Action::Wait // 觸發釋放
-                } else {
-                    choose_action(&g, &run)
-                };
-                status = step(&mut g, &mut run, a).status;
-                steps += 1;
-                if steps >= budget {
-                    break;
-                }
-            }
-            // base-raid 不會給 PickOffered(有核心);RunComplete=攻破、Defeat=守住。
-            _ => break,
+    // base-raid 不會給 PickOffered(有核心);跑到 RunComplete=攻破 / Defeat=守住 / 超預算為止。
+    while matches!(status, Status::AwaitingInput | Status::AwaitingRelease) {
+        let a = if status == Status::AwaitingRelease {
+            Action::Wait // 觸發釋放
+        } else {
+            choose_action(&g, &run)
+        };
+        status = step(&mut g, &mut run, a).status;
+        steps += 1;
+        if steps >= budget {
+            break;
         }
     }
     RaidResult { outcome: status, steps }

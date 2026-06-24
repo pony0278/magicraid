@@ -5,9 +5,10 @@
 //!
 //! 玩法真相仍在 sim;view metadata(icon/name/文案)留在 JS 殼(B0 §C-3)。
 
+use harness::bot_raid;
 use magicraid_sim::{
-    apply_drop, apply_pick, gen_offers, init_room, project_chain, spells::pickable, step, Action,
-    Cause, Event, GameState, Kind, PickResult, Reject, RunState, Spell, Status, Target, Tile,
+    apply_drop, apply_pick, gen_offers, init_base, init_room, project_chain, spells::pickable, step,
+    Action, Cause, Event, GameState, Kind, PickResult, Reject, RunState, Spell, Status, Target, Tile,
 };
 use std::cell::RefCell;
 
@@ -56,6 +57,35 @@ fn reject_code(r: Option<Reject>) -> u32 {
 thread_local! {
     static WORLD: RefCell<Option<World>> = const { RefCell::new(None) };
     static BUF: RefCell<Vec<u8>> = const { RefCell::new(Vec::new()) };
+    static INPUT: RefCell<Vec<u8>> = const { RefCell::new(Vec::new()) }; // Demo 2:基地佈局字串輸入緩衝
+}
+
+/// Demo 2:預留 `len` bytes 的輸入緩衝、回傳指標,供 JS 寫入基地佈局字串(`\n` 分行)。
+#[no_mangle]
+pub extern "C" fn mr_input_reserve(len: usize) -> *mut u8 {
+    INPUT.with(|b| {
+        let mut b = b.borrow_mut();
+        b.clear();
+        b.resize(len, 0);
+        b.as_mut_ptr()
+    })
+}
+
+/// loadout 位元遮罩 → 突襲者撿取法術(bit i = SPELL_BY_CODE[i];基礎包 bolt/push 本就 baseline)。
+fn loadout_spells(mask: u32) -> Vec<Spell> {
+    (0..7u32)
+        .filter(|c| mask & (1 << c) != 0)
+        .map(|c| SPELL_BY_CODE[c as usize])
+        .collect()
+}
+
+fn input_rows() -> Vec<String> {
+    INPUT.with(|b| {
+        String::from_utf8_lossy(&b.borrow())
+            .lines()
+            .map(|s| s.to_string())
+            .collect()
+    })
 }
 
 fn status_code(s: Status) -> u32 {
@@ -126,6 +156,39 @@ pub extern "C" fn mr_new(seed: u32) {
             last_events: Vec::new(),
         });
     });
+}
+
+/// Demo 2:用輸入緩衝的基地佈局開一場「自己試打」。`loadout` = 突襲者撿取法術位元遮罩。
+#[no_mangle]
+pub extern "C" fn mr_new_base(loadout: u32) {
+    let rows = input_rows();
+    let g = init_base(&rows);
+    let mut run = RunState::new(0);
+    run.acquired = loadout_spells(loadout);
+    WORLD.with(|w| {
+        *w.borrow_mut() = Some(World {
+            g,
+            run,
+            status: Status::AwaitingInput,
+            reject_code: 0,
+            last_events: Vec::new(),
+        });
+    });
+}
+
+/// Demo 2:對輸入緩衝的基地跑 baseline agent 試打,結果寫進 BUF(JSON)回傳 ptr。
+/// `{"outcome":"cracked"|"held"|"timeout","steps":N}`。cracked=bot 攻破、held=守住。
+#[no_mangle]
+pub extern "C" fn mr_bot_raid(loadout: u32) -> *const u8 {
+    let rows = input_rows();
+    let acquired = loadout_spells(loadout);
+    let res = bot_raid(&rows, &acquired, 4000);
+    let outcome = match res.outcome {
+        Status::RunComplete => "cracked",
+        Status::Defeat => "held",
+        _ => "timeout",
+    };
+    publish(format!("{{\"outcome\":\"{}\",\"steps\":{}}}", outcome, res.steps))
 }
 
 /// 套用一手。act:0=Wait 1=Potion 2=MoveTo(x,y) 3=Cast(spell,x,y) 4=Release。回傳 status code。
@@ -405,6 +468,12 @@ fn render_json(world: &World) -> String {
         ));
     }
     s.push(']');
+
+    // 核心目標格(base-raid;野區為 null)
+    match g.core {
+        Some((cx, cy)) => s.push_str(&format!(",\"core\":[{cx},{cy}]")),
+        None => s.push_str(",\"core\":null"),
+    }
 
     s.push('}');
     s
