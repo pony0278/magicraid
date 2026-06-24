@@ -185,24 +185,35 @@ pub fn apply_drop(run: &mut RunState, new_id: Spell, drop_id: Spell) {
 /// 實體 id:法師 = 0,其餘按掃描序(y,x)1 起跳;最後依 id 排序維持不變式(entities 為 id 序)。
 /// 魔像的**初始砸擊預告**在此 arm(對應 JS 行 224 `boss.slam=slamArea(mage)`),補上 ai.rs 標註的缺口。
 pub fn init_room(room_idx: usize) -> GameState {
-    let rows = config::ROOMS[room_idx].map;
+    parse_layout(config::ROOMS[room_idx].map, room_idx)
+}
+
+/// 從玩家基地的字元地圖建 `GameState`(Demo 2)。圖例同 ROOMS,外加 **`C` = 核心目標格**
+/// (踩到即贏)。`@` = 突襲者出生點。`room_idx` 對基地無意義,固定 0。
+pub fn init_base<S: AsRef<str>>(rows: &[S]) -> GameState {
+    parse_layout(rows, 0)
+}
+
+/// 共用:把字元地圖解析成 `GameState`。`C` 設核心格(其餘同 `init_room` 原邏輯)。
+fn parse_layout<S: AsRef<str>>(rows: &[S], room_idx: usize) -> GameState {
     let h = rows.len() as i32;
-    let w = rows[0].chars().count() as i32;
+    let w = rows[0].as_ref().chars().count() as i32;
 
     let mut tiles = Vec::with_capacity(h as usize);
     let mut entities = Vec::new();
     let mut next_id = 1u32;
+    let mut core: Option<(i32, i32)> = None;
 
     for (y, row) in rows.iter().enumerate() {
         let mut trow = Vec::with_capacity(w as usize);
-        for (x, c) in row.chars().enumerate() {
+        for (x, c) in row.as_ref().chars().enumerate() {
             trow.push(match c {
                 '#' => Tile::Wall,
                 'W' => Tile::Wood,
                 '~' => Tile::Oil,
                 's' => Tile::Spike,
                 'H' => Tile::Rune,
-                _ => Tile::Floor,
+                _ => Tile::Floor, // 含 'C'(核心是可踩的地板)
             });
             let (xi, yi) = (x as i32, y as i32);
             match c {
@@ -219,6 +230,7 @@ pub fn init_room(room_idx: usize) -> GameState {
                     entities.push(Entity::new(next_id, Kind::Boss, xi, yi));
                     next_id += 1;
                 }
+                'C' => core = Some((xi, yi)),
                 _ => {}
             }
         }
@@ -234,6 +246,7 @@ pub fn init_room(room_idx: usize) -> GameState {
         tiles,
         entities,
         room_idx,
+        core,
     };
 
     // arm 魔像初始預告(在法師起始位置周圍)。

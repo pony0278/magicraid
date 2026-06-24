@@ -32,8 +32,8 @@ pub mod time_chain;
 pub use damage::{StepCtx, TierTable};
 pub use events::{Cause, Event, Status};
 pub use roguelite::{
-    apply_drop, apply_pick, gen_offers, hash32, init_room, rng_for, Mulberry32, Op, PickResult,
-    RunState,
+    apply_drop, apply_pick, gen_offers, hash32, init_base, init_room, rng_for, Mulberry32, Op,
+    PickResult, RunState,
 };
 pub use spells::{Element, Reject, Spell, Target, TargetKind};
 pub use state::{Channel, Entity, GameState, Kind, Tile};
@@ -90,6 +90,14 @@ fn end_mage_turn(g: &mut GameState) {
 fn terminal_status(g: &GameState) -> Option<Status> {
     if g.mage().hp <= 0 {
         return Some(Status::Defeat);
+    }
+    // base-raid(有核心):踩到核心 _或_ 清光守軍 = 突襲成功(RunComplete);否則續打。野區無核心,跳過。
+    if let Some((cx, cy)) = g.core {
+        let m = g.mage();
+        if (m.x, m.y) == (cx, cy) || g.alive_enemies() == 0 {
+            return Some(Status::RunComplete);
+        }
+        return None;
     }
     if let Some(boss) = g.entities.iter().find(|e| e.kind == Kind::Boss) {
         if !boss.alive() {

@@ -131,6 +131,8 @@ pub struct GameState {
     /// 實體,**永遠以 id 序保存**(確定性,B0 §D-6)。
     pub entities: Vec<Entity>,
     pub room_idx: usize,
+    /// 基地突襲的核心目標格(踩到即贏);`None` = 野區 run(無核心)。決定 base-raid 終局(Demo 2)。
+    pub core: Option<(i32, i32)>,
 }
 
 impl GameState {

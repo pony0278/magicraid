@@ -22,6 +22,7 @@ fn two_actor_state(mage_speed: u8) -> GameState {
         burn_t: vec![vec![0, 0]],
         entities: vec![mage, imp],
         room_idx: 0,
+        core: None,
     }
 }
 

@@ -49,6 +49,7 @@ fn make(map: &[&str]) -> GameState {
         tiles,
         entities,
         room_idx: 0,
+        core: None,
     }
 }
 
