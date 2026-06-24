@@ -63,5 +63,9 @@ cd web/www && python3 -m http.server 8080  # → http://localhost:8080
   (純表現層、不碰 sim,確定性不受影響)。
 - ✅ 觸控預覽→確認(點一格瞄準、點同格提交)、16:9/橫向版面、**JS↔Rust 對拍**(`diff/`,已接 CI)、
   **丟牌 UI**(欄位滿時玩家選丟哪張:`mr_pick`→1 → `mr_drop`,不再自動丟最舊)。
+- ✅ Poki 插頁廣告:`commercialBreak` 放在 run 結束斷點(死亡→Restart、通關→Play Again),
+  廣告前 `gameplayStop`、新場 `firstInput` 再 `gameplayStart`;無 SDK(本機/Pages)直接放行。
+  ⚠ **正式提交 Poki 時才在 index.html 加 SDK script**(現在加會違反 Pages 的無外部請求;Poki 平台會注入)。
+- ✅ 全英文 UI(玩家可見字串;註解保留中文)。
 - ⏳ 待辦:法術投射物 / `stun`·`haste`·`intr` 視覺(需 cast event 帶 target,屬 sim)、
-  events→中文戰報在地化、Poki SDK 廣告點(死亡重來 / 兩局之間)。
+  上架前移除 dev log、localStorage try/catch(無痕)、讀 Poki「Working With AI」政策。

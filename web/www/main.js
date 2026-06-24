@@ -38,11 +38,23 @@ const REJECT_MSG = {
 const Poki = (() => {
   const sdk = window.PokiSDK;
   const noop = () => {};
-  if (!sdk) return { loadingFinished: noop, gameplayStart: noop, gameplayStop: noop };
+  // 無 SDK(本機 / GitHub Pages):廣告直接放行,只呼叫 onDone。
+  if (!sdk) {
+    return { loadingFinished: noop, gameplayStart: noop, gameplayStop: noop,
+      commercialBreak: (onDone) => (typeof onDone === "function" ? onDone : noop)() };
+  }
   return {
     loadingFinished: () => sdk.gameLoadingFinished && sdk.gameLoadingFinished(),
     gameplayStart: () => sdk.gameplayStart && sdk.gameplayStart(),
     gameplayStop: () => sdk.gameplayStop && sdk.gameplayStop(),
+    // 插頁廣告:先 gameplayStop(Poki 規範:廣告期間暫停/靜音),播完(或無廣告/失敗)再 onDone。
+    // gameplayStart 由下一場的 firstInput 觸發。Poki 自帶頻率上限,故每個自然斷點都呼叫即可。
+    commercialBreak: (onDone) => {
+      const done = typeof onDone === "function" ? onDone : noop;
+      sdk.gameplayStop && sdk.gameplayStop();
+      if (!sdk.commercialBreak) { done(); return; }
+      Promise.resolve(sdk.commercialBreak()).then(done, done);
+    },
   };
 })();
 
@@ -380,10 +392,10 @@ function renderOverlay() {
     }
   } else if (state.status === ST.COMPLETE) {
     show("Victory 🎉", "Run complete — that's the 'one more run'.");
-    btns.appendChild(mkBtn("Play Again", true, () => { Poki.gameplayStop(); newRun((Math.random() * 0xffffffff) >>> 0); }));
+    btns.appendChild(mkBtn("Play Again", true, () => { Poki.commercialBreak(() => newRun((Math.random() * 0xffffffff) >>> 0)); }));
   } else if (state.status === ST.DEFEAT) {
     show("Defeated 💀", "Try again — roguelite's 'one more run'.");
-    btns.appendChild(mkBtn("Restart", true, () => { Poki.gameplayStop(); newRun((Math.random() * 0xffffffff) >>> 0); }));
+    btns.appendChild(mkBtn("Restart", true, () => { Poki.commercialBreak(() => newRun((Math.random() * 0xffffffff) >>> 0)); }));
   }
 }
 
